@@ -1,4 +1,9 @@
-import { expect, type Page, type Response } from "@playwright/test";
+import {
+  expect,
+  type Locator,
+  type Page,
+  type Response,
+} from "@playwright/test";
 import {
   DEFAULT_SESSION,
   TASKBAR_ENTRY_SELECTOR,
@@ -59,23 +64,29 @@ export const owlTitlebarHasText = async (
     ).toBeVisible()
   ).toPass();
 
+/**
+ * Exact by default. List rows carry their status in the accessible name, so a
+ * substring match for "Approve" would also hit "… Approved" and click the wrong
+ * control — which is how the first version of these tests fooled itself.
+ */
+const owlButton = (label: RegExp | string, { page }: TestProps): Locator =>
+  page
+    .locator(WINDOW_SELECTOR)
+    .getByRole("button", {
+      exact: typeof label === "string",
+      name: label,
+    })
+    .first();
+
 export const clickOwlButton = async (
   label: RegExp | string,
   { page }: TestProps
-): Promise<void> =>
-  page
-    .locator(WINDOW_SELECTOR)
-    .getByRole("button", { name: label })
-    .first()
-    .click();
+): Promise<void> => owlButton(label, { page }).click();
 
 export const owlButtonIsDisabled = async (
   label: RegExp | string,
   { page }: TestProps
-): Promise<void> =>
-  expect(
-    page.locator(WINDOW_SELECTOR).getByRole("button", { name: label }).first()
-  ).toBeDisabled();
+): Promise<void> => expect(owlButton(label, { page })).toBeDisabled();
 
 /**
  * A sentinel that survives client-side navigation but not a page load, so a

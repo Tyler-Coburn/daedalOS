@@ -61,6 +61,18 @@ export const EXCLUDED_CONSOLE_LOGS = (
     }
   }
 
+  if (testName === "owlagents-unknown-link") {
+    excludedConsoleLogs.push(
+      /**
+       * An unrecognised deep link is *meant* to be served as 404.html: static
+       * export has no server to rewrite it, so the desktop renders from the 404
+       * document and resolves the path client-side. The browser reports the
+       * HTTP status; the application is behaving exactly as designed.
+       */
+      "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    );
+  }
+
   if (testName === "apps") {
     excludedConsoleLogs.push(
       // Browser

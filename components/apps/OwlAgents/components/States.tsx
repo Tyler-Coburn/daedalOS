@@ -55,18 +55,6 @@ const StaleStateBase: FC<{ reasons: readonly string[] }> = ({ reasons }) => (
 
 export const StaleState = memo(StaleStateBase);
 
-const DisconnectedStateBase: FC<{ detail: string; name: string }> = ({
-  detail,
-  name,
-}) => (
-  <Block $tone={OWL_TOKENS.accent.warning}>
-    <Heading>{name} is not connected</Heading>
-    {detail}
-  </Block>
-);
-
-export const DisconnectedState = memo(DisconnectedStateBase);
-
 const TONE_FOR_PHASE: Record<CommandPhase, string> = {
   accepted: OWL_TOKENS.accent.owlagents,
   committed: OWL_TOKENS.accent.ok,

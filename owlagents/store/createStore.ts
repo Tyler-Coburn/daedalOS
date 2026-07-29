@@ -1,8 +1,25 @@
 import { createDemoAdapter } from "owlagents/adapters/demo";
+import { createLocalAdapter } from "owlagents/adapters/local";
+import { createRemoteAdapter } from "owlagents/adapters/remote";
+import { createSupabaseAdapter } from "owlagents/adapters/supabase";
 import { type OwlAgentsAdapter } from "owlagents/adapters/types";
 import { type OwlAgentsSnapshot } from "owlagents/domain/snapshot";
 import { createServices } from "owlagents/services";
 import { type OwlAgentsServices } from "owlagents/services/types";
+
+/**
+ * Which authority the session runs against. `demo` is the default; the others
+ * are boundaries that report OFFLINE or DEGRADED until they are implemented,
+ * so selecting one can never silently fall back to fixtures.
+ */
+export const ADAPTERS = {
+  demo: createDemoAdapter,
+  local: createLocalAdapter,
+  remote: createRemoteAdapter,
+  supabase: createSupabaseAdapter,
+} as const;
+
+export type AdapterId = keyof typeof ADAPTERS;
 
 export type OwlAgentsStore = {
   /**
@@ -17,8 +34,8 @@ export type OwlAgentsStore = {
   subscribe: (onChange: () => void) => () => void;
 };
 
-export type CreateStoreOptions = {
-  adapter?: OwlAgentsAdapter;
+type CreateStoreOptions = {
+  adapter?: AdapterId | OwlAgentsAdapter;
 };
 
 /**
@@ -32,7 +49,9 @@ export type CreateStoreOptions = {
 export const createOwlAgentsStore = (
   options: CreateStoreOptions = {}
 ): OwlAgentsStore => {
-  const adapter = options.adapter ?? createDemoAdapter();
+  const selected = options.adapter ?? "demo";
+  const adapter =
+    typeof selected === "string" ? ADAPTERS[selected]() : selected;
   const initialSnapshot = adapter.readSnapshot();
 
   return {

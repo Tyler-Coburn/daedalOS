@@ -14,13 +14,6 @@ export type CommandPhase =
   | "processing"
   | "requested";
 
-export type CommandState = {
-  error: ServiceFailure["error"] | undefined;
-  phase: CommandPhase;
-  reset: () => void;
-  run: (args: never) => Promise<void>;
-};
-
 /**
  * The gate that stops the UI reporting success before anything committed.
  *

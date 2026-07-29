@@ -4,7 +4,6 @@ import useOwlSelector, {
 } from "components/apps/OwlAgents/hooks/useOwlSelector";
 import { useOwlAgentsContext } from "contexts/owlagents";
 import { type EnvironmentAuthority } from "owlagents/domain/authority";
-import { type MemoryTransition } from "owlagents/domain/memoryLifecycle";
 import { type ReviewStaleness } from "owlagents/domain/reviewDecision";
 import { type OwlAgentsSnapshot } from "owlagents/domain/snapshot";
 import {
@@ -31,7 +30,6 @@ import { type WorkOrderTransition } from "owlagents/domain/workOrderStatus";
 import {
   selectAgents,
   selectArtifact,
-  selectArtifacts,
   selectAuthority,
   selectContextPack,
   selectEvidenceItems,
@@ -48,7 +46,6 @@ import {
 } from "owlagents/selectors/catalog";
 import { selectLedger, type LedgerQuery } from "owlagents/selectors/ledger";
 import {
-  selectAllowedMemoryTransitions,
   selectExistingRecord,
   selectMemoryCandidate,
   selectMemoryCandidateList,
@@ -179,17 +176,6 @@ export const useExistingRecord = (id: string): WovensteadRecord | undefined =>
     useCallback((s: OwlAgentsSnapshot) => selectExistingRecord(id)(s), [id])
   );
 
-export const useAllowedMemoryTransitions = (
-  id: string
-): readonly MemoryTransition[] =>
-  useOwlSelector(
-    useCallback(
-      (s: OwlAgentsSnapshot) => selectAllowedMemoryTransitions(id)(s),
-      [id]
-    ),
-    shallowArrayEqual
-  );
-
 export const usePublicationGate = (
   id: string
 ): { canPublish: boolean; reason: string } =>
@@ -238,9 +224,6 @@ export const useArtifact = (id: string): Artifact | undefined =>
   useOwlSelector(
     useCallback((s: OwlAgentsSnapshot) => selectArtifact(id)(s), [id])
   );
-
-export const useArtifacts = (): readonly Artifact[] =>
-  useOwlSelector(selectArtifacts, shallowArrayEqual);
 
 export const useEvidence = (ids: readonly string[]): readonly EvidenceItem[] =>
   useOwlSelector(

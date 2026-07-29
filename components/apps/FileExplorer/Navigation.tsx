@@ -88,6 +88,7 @@ const Navigation: FC<NavigationProps> = ({
   return (
     <StyledNavigation
       ref={navRef}
+      aria-label="Address"
       {...useTitlebarContextMenu(id)}
       onDragOver={haltEvent}
       onDrop={haltEvent}
