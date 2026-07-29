@@ -39,6 +39,21 @@ type PdfProcessArguments = {
   subTitle?: string;
 };
 
+/**
+ * Per-window view state for the command-center applications.
+ *
+ * These live on the process, not in `SessionData`: they die with the window,
+ * and no service ever reads them, so operational authority cannot leak through
+ * view state. The selected object also travels in `url`, because that is the
+ * only field `openProcess` re-targets when a singleton is re-opened.
+ */
+type OwlAgentsProcessArguments = {
+  owlDeepLinkError?: string;
+  owlFilter?: string;
+  owlSelectedId?: string;
+  owlTab?: string;
+};
+
 export type RelativePosition = {
   bottom?: number;
   left?: number;
@@ -70,7 +85,24 @@ export type ProcessArguments = BaseProcessArguments &
   DialogProcessArguments &
   MediaPlayerProcessArguments &
   MonacoProcessArguments &
+  OwlAgentsProcessArguments &
   PdfProcessArguments;
+
+export type ProcessCategory = "advanced" | "diagnostic" | "primary";
+
+/**
+ * Registry metadata added by Phase B2. Every field is optional, so the 33
+ * existing entries are untouched, and it is a separate literal so
+ * `typescript-sort-keys` sorts it independently of the `Process` block.
+ */
+type RegistryProcessMetadata = {
+  category?: ProcessCategory;
+  deepLinkPatterns?: readonly string[];
+  /** Layer badge beside the window caption: OWLAGENTS, OLYMPUS RUNTIME, … */
+  laneBadge?: string;
+  minSize?: Size;
+  requiredCapabilities?: readonly string[];
+};
 
 export type ProcessElements = {
   componentWindow?: HTMLElement;
@@ -79,7 +111,8 @@ export type ProcessElements = {
 };
 
 export type Process = ProcessArguments &
-  ProcessElements & {
+  ProcessElements &
+  RegistryProcessMetadata & {
     Component: React.ComponentType<ComponentProcessProps>;
     closing?: boolean;
     defaultSize?: Size;

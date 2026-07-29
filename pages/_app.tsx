@@ -5,6 +5,7 @@ import Metadata from "components/pages/Metadata";
 import StyledApp from "components/pages/StyledApp";
 import { FileSystemProvider } from "contexts/fileSystem";
 import { MenuProvider } from "contexts/menu";
+import { OwlAgentsProvider } from "contexts/owlagents";
 import { ProcessProvider } from "contexts/process";
 import { SessionProvider } from "contexts/session";
 import { ViewportProvider } from "contexts/viewport";
@@ -18,7 +19,9 @@ const App = ({ Component: Index, pageProps }: AppProps): React.ReactElement => (
             <Metadata />
             <StyledApp>
               <MenuProvider>
-                <Index {...pageProps} />
+                <OwlAgentsProvider>
+                  <Index {...pageProps} />
+                </OwlAgentsProvider>
               </MenuProvider>
             </StyledApp>
           </ErrorBoundary>

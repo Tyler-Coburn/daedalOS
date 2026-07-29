@@ -1,0 +1,168 @@
+{
+  "AgentRoster": {
+    "category": "advanced",
+    "defaultSize": { "height": 590, "width": 1000 },
+    "icon": "/System/Icons/user.webp",
+    "laneBadge": "TWO TEAMS · ONE ROSTER",
+    "minSize": { "height": 360, "width": 640 },
+    "requiredCapabilities": ["agents.read"],
+    "singleton": true,
+    "title": "Agent Roster"
+  },
+  "ArtifactViewer": {
+    "category": "advanced",
+    "deepLinkPatterns": ["/artifacts/:id"],
+    "defaultSize": { "height": 570, "width": 900 },
+    "icon": "/System/Icons/monaco.webp",
+    "laneBadge": "READ-ONLY",
+    "minSize": { "height": 320, "width": 560 },
+    "requiredCapabilities": ["artifacts.read"],
+    "singleton": false,
+    "title": "Artifact Viewer"
+  },
+  "EventTimeline": {
+    "category": "diagnostic",
+    "defaultSize": { "height": 610, "width": 920 },
+    "icon": "/System/Icons/details_view.webp",
+    "laneBadge": "AUDIT LEDGER",
+    "minSize": { "height": 360, "width": 560 },
+    "requiredCapabilities": ["ledger.read"],
+    "singleton": true,
+    "title": "Event Timeline"
+  },
+  "Integrations": {
+    "category": "diagnostic",
+    "defaultSize": { "height": 550, "width": 1020 },
+    "icon": "/System/Icons/mounted.webp",
+    "laneBadge": "REGISTRY",
+    "minSize": { "height": 340, "width": 700 },
+    "requiredCapabilities": ["integrations.read"],
+    "singleton": true,
+    "title": "Integrations"
+  },
+  "MissionControl": {
+    "category": "primary",
+    "defaultSize": { "height": 630, "width": 1060 },
+    "icon": "/System/Icons/pc.webp",
+    "laneBadge": "OWLAGENTS",
+    "minSize": { "height": 560, "width": 900 },
+    "requiredCapabilities": ["ledger.read"],
+    "singleton": true,
+    "title": "Mission Control"
+  },
+  "ModelsProviders": {
+    "category": "diagnostic",
+    "defaultSize": { "height": 490, "width": 920 },
+    "icon": "/System/Icons/stablediffusion.webp",
+    "laneBadge": "ADMINISTRATION",
+    "minSize": { "height": 320, "width": 640 },
+    "requiredCapabilities": ["runtime.read"],
+    "singleton": true,
+    "title": "Models & Providers"
+  },
+  "OlympusWarRoom": {
+    "category": "diagnostic",
+    "defaultSize": { "height": 590, "width": 1080 },
+    "icon": "/System/Icons/emulator.webp",
+    "laneBadge": "OLYMPUS RUNTIME",
+    "minSize": { "height": 380, "width": 720 },
+    "requiredCapabilities": ["runtime.read"],
+    "singleton": true,
+    "title": "Olympus War Room"
+  },
+  "PolicyInspector": {
+    "category": "advanced",
+    "defaultSize": { "height": 570, "width": 1000 },
+    "icon": "/System/Icons/run.webp",
+    "laneBadge": "AEGIS POLICY",
+    "minSize": { "height": 360, "width": 640 },
+    "requiredCapabilities": ["policy.read"],
+    "singleton": true,
+    "title": "Policy Inspector"
+  },
+  "Projects": {
+    "category": "primary",
+    "deepLinkPatterns": ["/projects/:id"],
+    "defaultSize": { "height": 590, "width": 1000 },
+    "icon": "/System/Icons/desktop.webp",
+    "laneBadge": "PORTFOLIO",
+    "minSize": { "height": 380, "width": 640 },
+    "requiredCapabilities": ["projects.read"],
+    "singleton": true,
+    "title": "Projects"
+  },
+  "RestrictedTerminal": {
+    "category": "advanced",
+    "defaultSize": { "height": 430, "width": 760 },
+    "icon": "/System/Icons/xterm.webp",
+    "laneBadge": "RESTRICTED SHELL",
+    "minSize": { "height": 360, "width": 640 },
+    "requiredCapabilities": ["terminal.run"],
+    "singleton": false,
+    "title": "Restricted Terminal"
+  },
+  "ReviewQueue": {
+    "category": "primary",
+    "deepLinkPatterns": ["/reviews/:id"],
+    "defaultSize": { "height": 630, "width": 1120 },
+    "icon": "/System/Icons/marked.webp",
+    "laneBadge": "REVIEW",
+    "minSize": { "height": 420, "width": 800 },
+    "requiredCapabilities": ["reviews.read"],
+    "singleton": true,
+    "title": "Review Queue"
+  },
+  "SourcesFiles": {
+    "category": "primary",
+    "deepLinkPatterns": ["/sources/:id"],
+    "defaultSize": { "height": 550, "width": 1000 },
+    "icon": "/System/Icons/folder.webp",
+    "laneBadge": "OWLAGENTS",
+    "minSize": { "height": 380, "width": 700 },
+    "requiredCapabilities": ["sources.read"],
+    "singleton": false,
+    "title": "Sources & Files"
+  },
+  "SystemHealth": {
+    "category": "diagnostic",
+    "defaultSize": { "height": 530, "width": 880 },
+    "icon": "/System/Icons/eruda.webp",
+    "laneBadge": "INFRASTRUCTURE",
+    "minSize": { "height": 320, "width": 600 },
+    "requiredCapabilities": ["runtime.read"],
+    "singleton": true,
+    "title": "System Health"
+  },
+  "TaskManager": {
+    "category": "advanced",
+    "defaultSize": { "height": 530, "width": 900 },
+    "icon": "/System/Icons/pc.webp",
+    "laneBadge": "PROCESSES",
+    "minSize": { "height": 320, "width": 640 },
+    "requiredCapabilities": ["runtime.read"],
+    "singleton": true,
+    "title": "Task Manager"
+  },
+  "WorkOrders": {
+    "category": "primary",
+    "deepLinkPatterns": ["/work-orders/:id"],
+    "defaultSize": { "height": 650, "width": 1140 },
+    "icon": "/System/Icons/documents.webp",
+    "laneBadge": "OWLAGENTS",
+    "minSize": { "height": 440, "width": 860 },
+    "requiredCapabilities": ["workorders.read"],
+    "singleton": true,
+    "title": "Work Orders"
+  },
+  "WovensteadStaging": {
+    "category": "primary",
+    "deepLinkPatterns": ["/memory/:id"],
+    "defaultSize": { "height": 590, "width": 1020 },
+    "icon": "/System/Icons/mounted.webp",
+    "laneBadge": "WOVENSTEAD",
+    "minSize": { "height": 400, "width": 760 },
+    "requiredCapabilities": ["memory.read"],
+    "singleton": true,
+    "title": "Wovenstead Staging"
+  }
+}

@@ -1,8 +1,25 @@
 import dynamic from "next/dynamic";
 import { type Processes } from "contexts/process/types";
+import { OWLAGENTS_REGISTRY } from "owlagents/registry";
 import { FOLDER_ICON, TASKBAR_HEIGHT } from "utils/constants";
 
+/**
+ * The command-center entries spread `owlagents/registry.json`, which is the
+ * single owner of their category, size, icon, lane badge, singleton flag and
+ * deep-link patterns. The Start menu, the desktop, search and deep links all
+ * derive from that one table, so no surface keeps its own list.
+ */
 const directory: Processes = {
+  AgentRoster: {
+    ...OWLAGENTS_REGISTRY.AgentRoster,
+    Component: dynamic(() => import("components/apps/OwlAgents/AgentRoster")),
+  },
+  ArtifactViewer: {
+    ...OWLAGENTS_REGISTRY.ArtifactViewer,
+    Component: dynamic(
+      () => import("components/apps/OwlAgents/ArtifactViewer")
+    ),
+  },
   BoxedWine: {
     Component: dynamic(() => import("components/apps/BoxedWine")),
     allowResizing: false,
@@ -94,6 +111,10 @@ const directory: Processes = {
     lockAspectRatio: true,
     title: "Emulator",
   },
+  EventTimeline: {
+    ...OWLAGENTS_REGISTRY.EventTimeline,
+    Component: dynamic(() => import("components/apps/OwlAgents/EventTimeline")),
+  },
   FileExplorer: {
     Component: dynamic(() => import("components/apps/FileExplorer")),
     backgroundColor: "#202020",
@@ -114,6 +135,10 @@ const directory: Processes = {
     icon: "/System/Icons/kiwiirc.webp",
     libs: ["/Program Files/kiwiirc/index.html"],
     title: "IRC",
+  },
+  Integrations: {
+    ...OWLAGENTS_REGISTRY.Integrations,
+    Component: dynamic(() => import("components/apps/OwlAgents/Integrations")),
   },
   JSDOS: {
     Component: dynamic(() => import("components/apps/JSDOS")),
@@ -157,6 +182,18 @@ const directory: Processes = {
     singleton: true,
     title: "Messenger",
   },
+  MissionControl: {
+    ...OWLAGENTS_REGISTRY.MissionControl,
+    Component: dynamic(
+      () => import("components/apps/OwlAgents/MissionControl")
+    ),
+  },
+  ModelsProviders: {
+    ...OWLAGENTS_REGISTRY.ModelsProviders,
+    Component: dynamic(
+      () => import("components/apps/OwlAgents/ModelsProviders")
+    ),
+  },
   MonacoEditor: {
     Component: dynamic(() => import("components/apps/MonacoEditor")),
     backgroundColor: "#1E1E1E",
@@ -172,6 +209,12 @@ const directory: Processes = {
     ],
     icon: "/System/Icons/monaco.webp",
     title: "Monaco Editor",
+  },
+  OlympusWarRoom: {
+    ...OWLAGENTS_REGISTRY.OlympusWarRoom,
+    Component: dynamic(
+      () => import("components/apps/OwlAgents/OlympusWarRoom")
+    ),
   },
   OpenType: {
     Component: dynamic(() => import("components/apps/OpenType")),
@@ -219,6 +262,16 @@ const directory: Processes = {
     icon: "/System/Icons/photos.webp",
     title: "Photos",
   },
+  PolicyInspector: {
+    ...OWLAGENTS_REGISTRY.PolicyInspector,
+    Component: dynamic(
+      () => import("components/apps/OwlAgents/PolicyInspector")
+    ),
+  },
+  Projects: {
+    ...OWLAGENTS_REGISTRY.Projects,
+    Component: dynamic(() => import("components/apps/OwlAgents/Projects")),
+  },
   Properties: {
     Component: dynamic(() => import("components/system/Dialogs/Properties")),
     allowResizing: false,
@@ -244,6 +297,16 @@ const directory: Processes = {
     libs: ["/Program Files/Quake3/Quake3Game.js"],
     lockAspectRatio: true,
     title: "Quake III Arena",
+  },
+  RestrictedTerminal: {
+    ...OWLAGENTS_REGISTRY.RestrictedTerminal,
+    Component: dynamic(
+      () => import("components/apps/OwlAgents/RestrictedTerminal")
+    ),
+  },
+  ReviewQueue: {
+    ...OWLAGENTS_REGISTRY.ReviewQueue,
+    Component: dynamic(() => import("components/apps/OwlAgents/ReviewQueue")),
   },
   Ruffle: {
     Component: dynamic(() => import("components/apps/Ruffle")),
@@ -285,6 +348,10 @@ const directory: Processes = {
     singleton: true,
     title: "Screen Saver",
   },
+  SourcesFiles: {
+    ...OWLAGENTS_REGISTRY.SourcesFiles,
+    Component: dynamic(() => import("components/apps/OwlAgents/SourcesFiles")),
+  },
   SpaceCadet: {
     Component: dynamic(() => import("components/apps/SpaceCadet")),
     backgroundColor: "#000",
@@ -308,6 +375,14 @@ const directory: Processes = {
     icon: "/System/Icons/stablediffusion.webp",
     singleton: true,
     title: "Stable Diffusion",
+  },
+  SystemHealth: {
+    ...OWLAGENTS_REGISTRY.SystemHealth,
+    Component: dynamic(() => import("components/apps/OwlAgents/SystemHealth")),
+  },
+  TaskManager: {
+    ...OWLAGENTS_REGISTRY.TaskManager,
+    Component: dynamic(() => import("components/apps/OwlAgents/TaskManager")),
   },
   Terminal: {
     Component: dynamic(() => import("components/apps/Terminal")),
@@ -417,6 +492,16 @@ const directory: Processes = {
     libs: ["/Program Files/Webamp/webamp.bundle.min.js"],
     singleton: true,
     title: "Webamp",
+  },
+  WorkOrders: {
+    ...OWLAGENTS_REGISTRY.WorkOrders,
+    Component: dynamic(() => import("components/apps/OwlAgents/WorkOrders")),
+  },
+  WovensteadStaging: {
+    ...OWLAGENTS_REGISTRY.WovensteadStaging,
+    Component: dynamic(
+      () => import("components/apps/OwlAgents/WovensteadStaging")
+    ),
   },
 };
 
