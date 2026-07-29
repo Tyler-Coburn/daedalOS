@@ -43,11 +43,15 @@ const useOwlWindow = (
   const { argument, processes } = useProcesses();
   const process = processes[id];
 
+  /**
+   * `openProcess` re-targets a singleton by setting `url` and nothing else, so
+   * for every application whose selection is an object id, `url` is the
+   * freshest selection and the only one worth reading. Storing it in a second
+   * field as well would leave a stale value that outranks the deep link.
+   */
   const setSelectedId = useCallback(
-    (next: string) => {
-      argument(id, "owlSelectedId", next);
-      if (mirrorSelectionToUrl) argument(id, "url", next);
-    },
+    (next: string) =>
+      argument(id, mirrorSelectionToUrl ? "url" : "owlSelectedId", next),
     [argument, id, mirrorSelectionToUrl]
   );
 
@@ -71,8 +75,7 @@ const useOwlWindow = (
     deepLinkError: process?.owlDeepLinkError,
     filter: process?.owlFilter ?? "",
     selectedId:
-      process?.owlSelectedId ??
-      (mirrorSelectionToUrl ? (process?.url ?? "") : ""),
+      (mirrorSelectionToUrl ? process?.url : process?.owlSelectedId) ?? "",
     setFilter,
     setSelectedId,
     setTab,
