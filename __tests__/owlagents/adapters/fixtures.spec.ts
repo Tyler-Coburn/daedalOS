@@ -1,3 +1,5 @@
+import { existsSync } from "fs";
+import { join } from "path";
 import { DEMO_VERTICAL_SLICE } from "owlagents/adapters/demo/fixtures";
 import { createDemoSnapshot } from "owlagents/adapters/demo/snapshot";
 import { isId } from "owlagents/domain/ids";
@@ -167,6 +169,20 @@ describe("demo fixtures use only finite typed states", () => {
       expect(workOrder.stage.steps.length).toBeGreaterThan(0);
       expect(workOrder.stage.index).toBeLessThan(workOrder.stage.steps.length);
     }));
+});
+
+describe("every source projects onto a real preserved file", () => {
+  test("the path of each source exists under public/", () =>
+    expect(
+      Object.values(snapshot.sources)
+        .filter((source) => !existsSync(join("public", source.path)))
+        .map((source) => `${source.id} -> ${source.path}`)
+    ).toStrictEqual([]));
+
+  test("preserved records are served from the sources mount", () =>
+    Object.values(snapshot.sources).forEach((source) =>
+      expect(source.path.startsWith("/OwlAgents/Sources/")).toBe(true)
+    ));
 });
 
 describe("demo data is visibly demo data", () => {
