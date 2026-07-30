@@ -256,7 +256,7 @@ export type MemoryCandidate = {
   version: number;
 };
 
-export type Provenance = {
+type Provenance = {
   artifactId?: ArtifactId;
   candidateId?: MemoryCandidateId;
   contextPackId?: ContextPackId;

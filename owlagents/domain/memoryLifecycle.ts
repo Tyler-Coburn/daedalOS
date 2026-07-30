@@ -19,16 +19,13 @@ export const MEMORY_STATES = [
 
 export type MemoryState = (typeof MEMORY_STATES)[number];
 
-export type MemoryTransition = {
+type MemoryTransition = {
   operatorOnly: boolean;
   to: MemoryState;
   trigger: string;
 };
 
-export const MEMORY_TRANSITIONS: Record<
-  MemoryState,
-  readonly MemoryTransition[]
-> = {
+const MEMORY_TRANSITIONS: Record<MemoryState, readonly MemoryTransition[]> = {
   approved: [
     { operatorOnly: true, to: "staged", trigger: "Stage candidate" },
     { operatorOnly: true, to: "rejected", trigger: "Reject" },
@@ -76,10 +73,6 @@ export const MEMORY_TRANSITIONS: Record<
   ],
   superseded: [],
 };
-
-export const allowedMemoryTransitions = (
-  from: MemoryState
-): readonly MemoryTransition[] => MEMORY_TRANSITIONS[from];
 
 export const canPromoteMemory = (from: MemoryState, to: MemoryState): boolean =>
   MEMORY_TRANSITIONS[from].some((edge) => edge.to === to);

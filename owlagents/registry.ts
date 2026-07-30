@@ -9,7 +9,7 @@ import registry from "owlagents/registry.json";
  * there is no second hand-maintained list on any surface, and a jest test fails
  * if the generated shortcuts ever drift from this file.
  */
-export type OwlAgentsCategory = "advanced" | "diagnostic" | "primary";
+type OwlAgentsCategory = "advanced" | "diagnostic" | "primary";
 
 /**
  * Structurally compatible with react-rnd's `Size`, declared locally because
@@ -17,7 +17,7 @@ export type OwlAgentsCategory = "advanced" | "diagnostic" | "primary";
  */
 type RegistrySize = { height: number; width: number };
 
-export type OwlAgentsRegistryEntry = {
+type OwlAgentsRegistryEntry = {
   category: OwlAgentsCategory;
   deepLinkPatterns?: readonly string[];
   defaultSize: RegistrySize;
@@ -44,12 +44,6 @@ export const OWLAGENTS_CATEGORY_ORDER: readonly OwlAgentsCategory[] = [
   "diagnostic",
   "advanced",
 ];
-
-export const OWLAGENTS_CATEGORY_LABELS: Record<OwlAgentsCategory, string> = {
-  advanced: "Advanced",
-  diagnostic: "Diagnostic",
-  primary: "Primary",
-};
 
 export const appIdsInCategory = (
   category: OwlAgentsCategory

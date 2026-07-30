@@ -56,6 +56,3 @@ export type IdKind = keyof typeof ID_PATTERNS;
 
 export const isId = (kind: IdKind, value: string): boolean =>
   ID_PATTERNS[kind].test(value);
-
-export const idKindOf = (value: string): IdKind | undefined =>
-  (Object.keys(ID_PATTERNS) as IdKind[]).find((kind) => isId(kind, value));

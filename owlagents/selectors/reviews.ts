@@ -69,13 +69,6 @@ export const selectCanDecideReview =
     return !selectReviewStaleness(id)(snapshot).isStale;
   };
 
-export const selectPendingReviews = (
-  snapshot: OwlAgentsSnapshot
-): readonly Review[] =>
-  Object.values(snapshot.reviews)
-    .filter((review) => review.status === "pending")
-    .sort(byRequestedDescending);
-
 export const selectReviewsForWorkOrder =
   (workOrderId: string) =>
   (snapshot: OwlAgentsSnapshot): readonly Review[] =>

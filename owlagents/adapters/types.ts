@@ -74,14 +74,14 @@ export type OwlAgentsAdapter = {
   subscribe: (listener: () => void) => () => void;
 };
 
-export type HealthResult = {
+type HealthResult = {
   credentialState: string;
   latencyMs?: number;
   reachable: boolean;
   reason?: string;
 };
 
-export type IntegrationDescriptor = {
+type IntegrationDescriptor = {
   capabilities: readonly string[];
   id: string;
   mode: "demo" | "live";
@@ -91,13 +91,13 @@ export type IntegrationDescriptor = {
   writeScopes: readonly string[];
 };
 
-export type ReadRequest = { scope: string };
+type ReadRequest = { scope: string };
 
-export type ReadResult =
+type ReadResult =
   | { data: unknown; ok: true }
   | { ok: false; reason: "scope_denied" | "unavailable" };
 
-export type WriteRequest = {
+type WriteRequest = {
   /** A write is impossible without the decision that approved it. */
   policyDecisionId: string;
   scope: string;
@@ -105,7 +105,7 @@ export type WriteRequest = {
   workOrderId: string;
 };
 
-export type WriteResult =
+type WriteResult =
   | { cost?: number; ok: true }
   | { ok: false; reason: "policy_required" | "scope_denied" | "unavailable" };
 
@@ -113,7 +113,12 @@ export type WriteResult =
  * The integration port. A `write` method exists only when the integration is
  * meant to write, and every call carries the approving policy decision and
  * work-order id. Adapters return credential *state*, never credentials.
+ *
+ * No implementation exists yet — this is the boundary the first live
+ * integration (Ollama, then the local filesystem) will be built against, so it
+ * is exported deliberately rather than pruned.
  */
+// ts-prune-ignore-next
 export type IntegrationAdapter = {
   check: () => Promise<HealthResult>;
   describe: () => IntegrationDescriptor;

@@ -25,7 +25,7 @@ export const WORK_ORDER_STATUSES = [
 
 export type WorkOrderStatus = (typeof WORK_ORDER_STATUSES)[number];
 
-export type TransitionActor = "operator" | "policy" | "runtime";
+type TransitionActor = "operator" | "policy" | "runtime";
 
 export type WorkOrderTransition = {
   actor: TransitionActor;

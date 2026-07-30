@@ -74,6 +74,6 @@ const write = () => {
   });
 };
 
-module.exports = { buildShortcutFiles, DESKTOP, START_MENU };
+module.exports = { buildShortcutFiles, START_MENU };
 
 if (require.main === module) write();

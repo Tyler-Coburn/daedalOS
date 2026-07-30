@@ -81,7 +81,7 @@ export const OWL_TOKENS = {
  * where two vocabularies share a word they genuinely mean the same thing, so
  * "approved" looks the same wherever it appears.
  */
-export const STATUS_TONE: Record<string, { fill: string; text: string }> = {
+const STATUS_TONE: Record<string, { fill: string; text: string }> = {
   approval_required: { fill: "#a78bfa", text: "#c4b0ff" },
   approved: { fill: "#57b96a", text: "#8fd0a3" },
   artifact_ready: { fill: "#4cc2e8", text: "#7fd6f2" },
@@ -116,7 +116,7 @@ export const STATUS_TONE: Record<string, { fill: string; text: string }> = {
   superseded: { fill: "#6b7280", text: "#9aa1b0" },
 };
 
-export const DEFAULT_TONE = { fill: "#8b93a5", text: "#b9bfcd" };
+const DEFAULT_TONE = { fill: "#8b93a5", text: "#b9bfcd" };
 
 export const toneOf = (status: string): { fill: string; text: string } =>
   STATUS_TONE[status] ?? DEFAULT_TONE;

@@ -38,7 +38,7 @@ export type ReducerContext = {
   now: () => string;
 };
 
-export type ReducerResult = {
+type ReducerResult = {
   result: ServiceResult<CommandOutcome>;
   snapshot: OwlAgentsSnapshot;
 };

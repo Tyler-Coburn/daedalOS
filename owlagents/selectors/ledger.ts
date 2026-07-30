@@ -30,11 +30,6 @@ export const selectEventsSinceLastSession = (
 ): readonly LedgerEvent[] =>
   selectLedger({ since: snapshot.sessionStartedAt })(snapshot);
 
-export const selectEventsForObject =
-  (objectId: string, limit = 8) =>
-  (snapshot: OwlAgentsSnapshot): readonly LedgerEvent[] =>
-    selectLedger({ limit, objectId })(snapshot);
-
 export const LEDGER_SYSTEMS: readonly SystemLayer[] = [
   "OWL",
   "OLY",

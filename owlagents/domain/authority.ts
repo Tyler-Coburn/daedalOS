@@ -9,6 +9,7 @@
  * through review.
  */
 
+// ts-prune-ignore-next — the documented mode vocabulary; adapters read it.
 export const ENVIRONMENT_MODES = [
   "CONNECTED",
   "DEGRADED",
@@ -17,7 +18,7 @@ export const ENVIRONMENT_MODES = [
   "OFFLINE",
 ] as const;
 
-export type EnvironmentMode = (typeof ENVIRONMENT_MODES)[number];
+type EnvironmentMode = (typeof ENVIRONMENT_MODES)[number];
 
 export type EnvironmentAuthority = {
   /** Operational writes permitted at all in this mode. */
@@ -31,19 +32,11 @@ export type EnvironmentAuthority = {
   writeBlockedReason: string;
 };
 
-export const ENVIRONMENT_LABELS: Record<EnvironmentMode, string> = {
-  CONNECTED: "Connected",
-  DEGRADED: "Degraded",
-  DEMO: "Demo",
-  LOCAL: "Local",
-  OFFLINE: "Offline",
-};
-
 /**
  * Read semantics per mode, quoted on the data-authority flyout. Kept as data so
  * no application can invent its own wording.
  */
-export const ENVIRONMENT_READ_SOURCE: Record<EnvironmentMode, string> = {
+const ENVIRONMENT_READ_SOURCE: Record<EnvironmentMode, string> = {
   CONNECTED: "Local authority plus external adapters, per-adapter authority.",
   DEGRADED: "Last authoritative state, read-only.",
   DEMO: "Typed local fixtures. No external system was contacted.",
@@ -51,7 +44,7 @@ export const ENVIRONMENT_READ_SOURCE: Record<EnvironmentMode, string> = {
   OFFLINE: "Shell only. No operational data is available.",
 };
 
-export const ENVIRONMENT_WRITE_RULE: Record<EnvironmentMode, string> = {
+const ENVIRONMENT_WRITE_RULE: Record<EnvironmentMode, string> = {
   CONNECTED: "Allowed per adapter authority.",
   DEGRADED: "Blocked — the authoritative store is unreachable.",
   DEMO: "Simulated against fixtures and recorded in the demo ledger.",
@@ -59,15 +52,14 @@ export const ENVIRONMENT_WRITE_RULE: Record<EnvironmentMode, string> = {
   OFFLINE: "Disabled — nothing can be committed while offline.",
 };
 
-export const canWriteInMode = (mode: EnvironmentMode): boolean =>
+const canWriteInMode = (mode: EnvironmentMode): boolean =>
   mode === "CONNECTED" || mode === "DEMO" || mode === "LOCAL";
 
 /**
  * DEMO is the only mode whose writes commit without an authoritative store, so
  * it is also the only mode that must label every record it returns.
  */
-export const isFixtureMode = (mode: EnvironmentMode): boolean =>
-  mode === "DEMO";
+const isFixtureMode = (mode: EnvironmentMode): boolean => mode === "DEMO";
 
 export const describeEnvironment = (
   mode: EnvironmentMode
@@ -80,6 +72,7 @@ export const describeEnvironment = (
 });
 
 /** Source and artifact authority, lowest to highest. */
+// ts-prune-ignore-next — the documented authority ladder, lowest to highest.
 export const AUTHORITY_LEVELS = [
   "raw",
   "derived",
@@ -102,13 +95,7 @@ export const AUTHORITY_LABELS: Record<AuthorityLevel, string> = {
   superseded: "Superseded",
 };
 
-/**
- * Rank is for comparison only. `superseded` deliberately ranks below
- * `canonical`: it was canonical once, it is not now.
- */
-export const authorityRank = (level: AuthorityLevel): number =>
-  level === "superseded" ? 0 : AUTHORITY_LEVELS.indexOf(level) + 1;
-
+// ts-prune-ignore-next — the documented integration state vocabulary.
 export const INTEGRATION_STATES = [
   "connected",
   "degraded",
@@ -130,7 +117,7 @@ export const isHealthyIntegrationState = (state: IntegrationState): boolean =>
   state === "connected";
 
 /** Source intake is staged and visible — a dropped file is not yet authoritative. */
-export const INTAKE_STAGES = [
+const INTAKE_STAGES = [
   "received",
   "hashing",
   "preserved",

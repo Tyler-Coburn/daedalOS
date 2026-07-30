@@ -7,9 +7,9 @@ import { type AttentionItem, type LedgerEvent } from "owlagents/domain/types";
 import { type WorkOrderStatus } from "owlagents/domain/workOrderStatus";
 import { type LedgerQuery } from "owlagents/selectors/ledger";
 
-export type Committed = Promise<ServiceResult<CommandOutcome>>;
+type Committed = Promise<ServiceResult<CommandOutcome>>;
 
-export type TransitionRequest = {
+type TransitionRequest = {
   actorId?: string;
   expectedVersion: number;
   id: string;
@@ -23,7 +23,7 @@ export type TransitionRequest = {
   to: WorkOrderStatus;
 };
 
-export type ReviewDecisionRequest = {
+type ReviewDecisionRequest = {
   actorId?: string;
   /** What the operator was shown, not a fresh read of the artifact. */
   artifactHash: string;
@@ -35,7 +35,7 @@ export type ReviewDecisionRequest = {
   reason?: string;
 };
 
-export type MemoryRequest = {
+type MemoryRequest = {
   actorId?: string;
   expectedVersion: number;
   id: string;

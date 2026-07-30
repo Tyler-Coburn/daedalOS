@@ -21,7 +21,7 @@ export const DEMO_OPERATOR_SCOPES: readonly string[] = [
   "workorder.transition",
 ];
 
-export type ScenarioResult = {
+type ScenarioResult = {
   scopes: ReadonlySet<string>;
   snapshot: OwlAgentsSnapshot;
 };

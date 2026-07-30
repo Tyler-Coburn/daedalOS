@@ -9,7 +9,7 @@ export type DeepLinkObjectType =
   | "source"
   | "workOrder";
 
-export type DeepLinkTarget = {
+type DeepLinkTarget = {
   appId: OwlAgentsAppId;
   objectId: string;
   objectType: DeepLinkObjectType;
@@ -106,6 +106,3 @@ export const buildDeepLink = (
 
   return route ? `/${route.segment}/${objectId}` : "/";
 };
-
-export const deepLinkPatterns = (): readonly string[] =>
-  DEEP_LINK_ROUTES.map((route) => `/${route.segment}/:id`);

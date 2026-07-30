@@ -18,7 +18,7 @@ import {
   type ServiceResult,
 } from "owlagents/domain/outcome";
 
-export type DemoAdapterOptions = {
+type DemoAdapterOptions = {
   /** Injected so tests are deterministic and snapshots stay comparable. */
   now?: () => string;
 };

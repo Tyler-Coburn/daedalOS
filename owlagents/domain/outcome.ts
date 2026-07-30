@@ -7,6 +7,11 @@
  * that simply has not finished yet.
  */
 
+/**
+ * Requested → Accepted → Processing → Committed. Exported as the documented
+ * phase vocabulary; `useCommand` renders success from the last one only.
+ */
+// ts-prune-ignore-next
 export const OUTCOME_PHASES = [
   "requested",
   "accepted",
@@ -14,8 +19,7 @@ export const OUTCOME_PHASES = [
   "committed",
 ] as const;
 
-export type OutcomePhase = (typeof OUTCOME_PHASES)[number];
-
+// ts-prune-ignore-next — the documented failure vocabulary.
 export const FAILURE_REASONS = [
   "blocked",
   "cancelled",
@@ -27,7 +31,7 @@ export const FAILURE_REASONS = [
   "stale_version",
 ] as const;
 
-export type FailureReason = (typeof FAILURE_REASONS)[number];
+type FailureReason = (typeof FAILURE_REASONS)[number];
 
 export const FAILURE_LABELS: Record<FailureReason, string> = {
   blocked: "Blocked",
@@ -52,7 +56,7 @@ export type ServiceFailure = {
   ok: false;
 };
 
-export type ServiceSuccess<T> = {
+type ServiceSuccess<T> = {
   data: T;
   /** Id of the appended ledger event. Absent means nothing was committed. */
   eventId: string;
@@ -77,21 +81,3 @@ export const failResult = (
   error: { action: extra?.action, code, detail: extra?.detail, message },
   ok: false,
 });
-
-/** Narrowing helper so call sites never read `.data` off a failure. */
-export const isOk = <T>(
-  result: ServiceResult<T>
-): result is ServiceSuccess<T> => result.ok;
-
-/**
- * The payload the authoritative store validates before anything commits.
- * Present on every high-impact request, not just the ones that seem risky.
- */
-export type TransitionEnvelope = {
-  actorId: string;
-  expectedVersion: number;
-  idempotencyKey: string;
-  permissionScope: string;
-  reason?: string;
-  requestedAt: number;
-};

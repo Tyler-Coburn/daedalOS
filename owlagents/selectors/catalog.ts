@@ -8,7 +8,6 @@ import {
   type Artifact,
   type ContextPack,
   type EvidenceItem,
-  type ExecutionRun,
   type Incident,
   type Integration,
   type ModelProvider,
@@ -37,22 +36,10 @@ export const selectSource =
 export const selectSources = (snapshot: OwlAgentsSnapshot): readonly Source[] =>
   Object.values(snapshot.sources).sort((a, b) => a.id.localeCompare(b.id));
 
-export const selectSourcesForProject =
-  (projectId: string) =>
-  (snapshot: OwlAgentsSnapshot): readonly Source[] =>
-    Object.values(snapshot.sources).filter(
-      (source) => source.projectId === projectId
-    );
-
 export const selectArtifact =
   (id: string) =>
   (snapshot: OwlAgentsSnapshot): Artifact | undefined =>
     snapshot.artifacts[id];
-
-export const selectArtifacts = (
-  snapshot: OwlAgentsSnapshot
-): readonly Artifact[] =>
-  Object.values(snapshot.artifacts).sort((a, b) => a.id.localeCompare(b.id));
 
 export const selectEvidenceItems =
   (ids: readonly string[]) =>
@@ -78,25 +65,8 @@ export const selectPolicyRules = (
 ): readonly PolicyRule[] =>
   Object.values(snapshot.policyRules).sort((a, b) => a.id.localeCompare(b.id));
 
-export const selectPolicyRule =
-  (id: string) =>
-  (snapshot: OwlAgentsSnapshot): PolicyRule | undefined =>
-    snapshot.policyRules[id];
-
-export const selectRunsForWorkOrder =
-  (workOrderId: string) =>
-  (snapshot: OwlAgentsSnapshot): readonly ExecutionRun[] =>
-    Object.values(snapshot.runs).filter(
-      (run) => run.workOrderId === workOrderId
-    );
-
 export const selectAgents = (snapshot: OwlAgentsSnapshot): readonly Agent[] =>
   Object.values(snapshot.agents).sort((a, b) => a.id.localeCompare(b.id));
-
-export const selectAgent =
-  (id: string) =>
-  (snapshot: OwlAgentsSnapshot): Agent | undefined =>
-    snapshot.agents[id];
 
 export const selectServices = (
   snapshot: OwlAgentsSnapshot

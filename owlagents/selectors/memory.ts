@@ -1,8 +1,4 @@
-import {
-  allowedMemoryTransitions,
-  type MemoryState,
-  type MemoryTransition,
-} from "owlagents/domain/memoryLifecycle";
+import { type MemoryState } from "owlagents/domain/memoryLifecycle";
 import { type OwlAgentsSnapshot } from "owlagents/domain/snapshot";
 import {
   type MemoryCandidate,
@@ -32,18 +28,6 @@ export const selectExistingRecord =
     if (!candidate?.existingRecordId) return undefined;
 
     return snapshot.wovensteadRecords[candidate.existingRecordId];
-  };
-
-export const selectAllowedMemoryTransitions =
-  (id: string) =>
-  (snapshot: OwlAgentsSnapshot): readonly MemoryTransition[] => {
-    const candidate = snapshot.memoryCandidates[id];
-
-    if (!candidate) return [];
-
-    return allowedMemoryTransitions(candidate.status).filter(
-      (transition) => transition.operatorOnly
-    );
   };
 
 /**
@@ -102,10 +86,3 @@ export const selectMemoryCounts = (
     ).length,
   };
 };
-
-export const selectWovensteadRecords = (
-  snapshot: OwlAgentsSnapshot
-): readonly WovensteadRecord[] =>
-  Object.values(snapshot.wovensteadRecords).sort((a, b) =>
-    b.publishedAt.localeCompare(a.publishedAt)
-  );

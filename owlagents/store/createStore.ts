@@ -12,16 +12,16 @@ import { type OwlAgentsServices } from "owlagents/services/types";
  * are boundaries that report OFFLINE or DEGRADED until they are implemented,
  * so selecting one can never silently fall back to fixtures.
  */
-export const ADAPTERS = {
+const ADAPTERS = {
   demo: createDemoAdapter,
   local: createLocalAdapter,
   remote: createRemoteAdapter,
   supabase: createSupabaseAdapter,
 } as const;
 
-export type AdapterId = keyof typeof ADAPTERS;
+type AdapterId = keyof typeof ADAPTERS;
 
-export type OwlAgentsStore = {
+type OwlAgentsStore = {
   /**
    * Static export prerenders the page, so hydration must see the same value the
    * server rendered. Returning the initial snapshot guarantees that — a

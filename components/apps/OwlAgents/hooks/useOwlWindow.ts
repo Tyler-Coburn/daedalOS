@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useProcesses } from "contexts/process";
 
-export type OwlWindowState = {
+type OwlWindowState = {
   clearDeepLinkError: () => void;
   deepLinkError: string | undefined;
   filter: string;
@@ -24,7 +24,7 @@ export type OwlWindowState = {
  * The selection is mirrored into `url` because that is the only field
  * `openProcess` re-targets when a singleton is re-opened by a deep link.
  */
-export type OwlWindowOptions = {
+type OwlWindowOptions = {
   defaultTab?: string;
   /**
    * Sources & Files composes the repository's File Explorer, which reads `url`

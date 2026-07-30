@@ -88,7 +88,7 @@ export type ProcessArguments = BaseProcessArguments &
   OwlAgentsProcessArguments &
   PdfProcessArguments;
 
-export type ProcessCategory = "advanced" | "diagnostic" | "primary";
+type ProcessCategory = "advanced" | "diagnostic" | "primary";
 
 /**
  * Registry metadata added by Phase B2. Every field is optional, so the 33

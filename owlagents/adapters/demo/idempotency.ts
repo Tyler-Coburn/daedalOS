@@ -1,6 +1,6 @@
 import { type CommandOutcome } from "owlagents/adapters/types";
 
-export type IdempotencyRegistry = {
+type IdempotencyRegistry = {
   record: (key: string, outcome: CommandOutcome, eventId: string) => void;
   replay: (
     key: string

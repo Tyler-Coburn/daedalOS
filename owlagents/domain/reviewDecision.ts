@@ -53,13 +53,13 @@ export const REVIEW_STATE_LABELS: Record<ReviewState, string> = {
 export const isDecidableReviewState = (state: ReviewState): boolean =>
   state === "deferred" || state === "pending";
 
-export type ReviewExpectation = {
+type ReviewExpectation = {
   expectedArtifactHash: string;
   expectedArtifactVersion: number;
   expectedVersion: number;
 };
 
-export type ReviewObservation = {
+type ReviewObservation = {
   artifactHash: string;
   artifactVersion: number;
   version: number;
@@ -75,7 +75,7 @@ export type ReviewStaleness = {
   reasons: readonly StalenessReason[];
 };
 
-export const STALENESS_EXPLANATIONS: Record<StalenessReason, string> = {
+const STALENESS_EXPLANATIONS: Record<StalenessReason, string> = {
   artifact_hash_changed:
     "The artifact content hash changed after this review was requested.",
   artifact_version_changed:

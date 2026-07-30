@@ -55,7 +55,7 @@ export const SCENARIO_LABELS: Record<ScenarioCommand, string> = {
   simulateStaleReview: "Simulate stale review",
 };
 
-export type ScenarioState = {
+type ScenarioState = {
   /** Human-readable trace of what the operator triggered, newest last. */
   history: readonly string[];
   step: number;

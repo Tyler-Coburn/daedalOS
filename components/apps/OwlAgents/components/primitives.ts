@@ -7,7 +7,7 @@ export const selectableText = css`
   user-select: text;
 `;
 
-export const focusRing = css`
+const focusRing = css`
   &:focus-visible {
     outline: 1px solid ${OWL_TOKENS.color.focusRing};
     outline-offset: -1px;
