@@ -34,9 +34,10 @@ Break any of these and the phase's guarantees evaporate.
 2. **Nothing reports success before it commits.** `useCommand` reaches
    `committed` only when the store's ledger contains the event the service
    returned. Never render success from a resolved promise.
-3. **`owlagents/**`is React-free.**`getStaticPaths`imports the fixtures in
-Node at build time.`**tests**/owlagents/architecture.spec.ts`enforces this
-and the whole layering matrix — it is the real gate, because CI runs`yarn test`and does not run`yarn eslint`.
+3. **The `owlagents` tree is React-free.** `getStaticPaths` imports the fixtures
+   in Node at build time. The architecture spec under `__tests__/owlagents`
+   enforces this and the whole layering matrix — it is the real gate, because CI
+   runs `yarn test` and does not run `yarn eslint`.
 4. **`url` is the selection.** `openProcess`'s singleton branch is
    `setProcessSettings(pid, { url })` — it carries `url` and nothing else. A
    parallel selection field would go stale and outrank the deep link. Sources &
