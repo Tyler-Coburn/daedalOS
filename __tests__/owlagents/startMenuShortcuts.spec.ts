@@ -19,6 +19,8 @@ const walk = (directory: string): string[] =>
 const generated = buildShortcutFiles();
 const onDisk = walk(START_MENU);
 
+const normalise = (contents: string): string => contents.replace(/\r\n/g, "\n");
+
 const valueOf = (contents: string, key: string): string =>
   contents
     .split("\n")
@@ -44,11 +46,17 @@ describe("start menu shortcuts are generated from the registry", () => {
         .toSorted((a, b) => a.localeCompare(b))
     ));
 
-  test("the bytes on disk match what the generator produces", () =>
+  /**
+   * Compared line-ending agnostically: git's autocrlf rewrites these on a
+   * Windows checkout, and the contract is the content, not the bytes.
+   */
+  test("the contents on disk match what the generator produces", () =>
     generated
       .filter((file) => existsSync(file.path))
       .forEach((file) =>
-        expect(readFileSync(file.path, "utf8")).toBe(file.contents)
+        expect(normalise(readFileSync(file.path, "utf8"))).toBe(
+          normalise(file.contents)
+        )
       ));
 
   test("every BaseURL is a registered application id", () =>

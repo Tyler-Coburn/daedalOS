@@ -214,6 +214,43 @@ Sources & Files is also the one application whose `url` is a filesystem path
 rather than an object id, because it composes the File Explorer. Its selection
 travels in `owlSelectedId` alone.
 
+## Source intake
+
+Dropping a file into the folder on the left of Sources & Files is a filesystem
+operation and stays one. The intake zone beside it is a different act: it starts
+a _governed_ intake, and the two are deliberately not the same gesture.
+
+An intake does real work, in this order, each step a separate committed
+transition with its own ledger event:
+
+```
+received → hashing → preserved → classifying → policy_checked → assigned → ready
+```
+
+The hash is a real SHA-256 of the actual bytes via `crypto.subtle`. The file is
+written to `/OwlAgents/Sources/<project>/`. The policy stage names the rule it
+was checked against (POL-002). Each advance fires because that stage's work
+finished — there is no timer anywhere in the path.
+
+The file is **not authoritative on arrival**. It enters at `received` with
+`raw` authority and only becomes referenceable by a work order at `ready`. The
+idempotency key is `project + content hash`, so dropping the same bytes into the
+same project twice is one intake, not two.
+
+## Capabilities
+
+Every registry entry declares `requiredCapabilities`. The snapshot carries the
+operator's capabilities, and `AppShell` refuses an application whose capability
+is absent — naming the missing capability and stating that nothing was read. A
+blank window would be indistinguishable from a broken one.
+
+The gate is reactive, not a mount-time check: revoking a capability closes off
+an application that is already open. `simulateDeniedPermission` revokes
+`policy.read` so this is demonstrable, and `__tests__/owlagents/selectors`
+asserts the demo capability list covers every capability the sixteen
+applications declare — adapters may not import the registry, so that test is
+what stops the two drifting.
+
 ## The demo
 
 `createDemoAdapter` returns typed fixtures and runs _real_ validation: an

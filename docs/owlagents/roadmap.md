@@ -22,18 +22,18 @@ automation · additional wallpapers · screensavers · new decorative applicatio
 | Stage advance driven by execution events                                              | `scenarioService` is the current seam; a real adapter appends the same ledger events                                                        |
 | Cost reporting by project and work order                                              | `Money` on work orders and runs; Mission Control already sums it                                                                            |
 | Policy editing and simulation                                                         | `PolicyInspector` is read-only; a change is a proposal that routes through the Review Queue                                                 |
-| Permission management                                                                 | `permissionScope` is validated per command; the scope set is currently fixed                                                                |
+| Multi-operator permission management                                                  | `permissionScope` is validated per command and `capabilities` gate applications; the set belongs to one operator and is not yet persisted   |
 
 ## Known gaps in what did land
 
-- **Sources & Files intake is not interactive.** The intake stage machine and
-  `sourceService.advanceIntake` exist and are tested, but dropping a file onto
-  the window does not yet run it: the drop lands in the repository's own
-  `useFileDrop`, which has no knowledge of domain objects. Wiring the two is
-  the next bounded piece of that application.
-- **Capabilities are declared but not gated.** Every registry entry carries
-  `requiredCapabilities`, and the registry test asserts they exist, but nothing
-  hides an application yet — there is one operator with every scope.
+- **Only one operator identity exists.** Capabilities are declared, enforced and
+  revocable, but there is a single operator holding the full set. Multi-operator
+  identity, and persisting a per-operator scope set, is a later phase.
+- **Intake runs against the demo adapter.** The stages are real — the hash is
+  measured with `crypto.subtle`, the file is written to the sources mount, and
+  each stage is a separate committed transition — but the authority behind it is
+  still `owlagents/adapters/demo`. Putting the local adapter behind it is the
+  first real exercise of that boundary.
 - **The Start menu shows the OwlAgents group as a folder**, not as three
   inline sections. Categories drive the folder layout; a flatter presentation
   would mean changing the shared `StartMenu` component.

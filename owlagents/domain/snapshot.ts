@@ -68,6 +68,12 @@ type ScenarioState = {
 export type OwlAgentsSnapshot = {
   agents: Readonly<Record<string, Agent>>;
   artifacts: Readonly<Record<ArtifactId, Artifact>>;
+  /**
+   * What this operator is allowed to see and do. Applications declare
+   * `requiredCapabilities` in the registry and are refused when one is absent —
+   * the refusal is visible, not a blank window.
+   */
+  capabilities: readonly string[];
   contextPacks: Readonly<Record<ContextPackId, ContextPack>>;
   environment: EnvironmentAuthority;
   evidence: Readonly<Record<EvidenceId, EvidenceItem>>;

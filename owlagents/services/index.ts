@@ -13,6 +13,7 @@ const PERMISSION_SCOPE: Record<AdapterCommand["kind"], string> = {
   "review.decide": "review.decide",
   "scenario.run": "scenario.run",
   "source.advanceIntake": "source.intake",
+  "source.ingest": "source.intake",
   "workOrder.transition": "workorder.transition",
 };
 
@@ -35,6 +36,8 @@ const defaultKey = (command: AdapterCommand): string => {
       return `${command.kind}:${command.command}`;
     case "source.advanceIntake":
       return `${command.kind}:${command.id}`;
+    case "source.ingest":
+      return `${command.kind}:${command.projectId}:${command.hash}`;
     default:
       return `${command.kind}:${command.id}:${command.to}:${command.expectedVersion}`;
   }
@@ -145,6 +148,22 @@ export const createServices = (
           {
             actorId: "runtime",
             idempotencyKey: `source.advanceIntake:${id}:${adapter.readSnapshot().version}`,
+          }
+        ),
+      ingest: (request) =>
+        send(
+          {
+            hash: request.hash,
+            kind: "source.ingest",
+            name: request.name,
+            path: request.path,
+            projectId: request.projectId,
+            size: request.size,
+          },
+          // Keyed on the content hash: dropping the same bytes twice into the
+          // same project is one intake, not two.
+          {
+            idempotencyKey: `source.ingest:${request.projectId}:${request.hash}`,
           }
         ),
     },

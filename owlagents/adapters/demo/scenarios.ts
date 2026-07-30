@@ -1,5 +1,9 @@
 import { DEMO_VERTICAL_SLICE } from "owlagents/adapters/demo/fixtures";
 import {
+  DEMO_OPERATOR_SCOPES,
+  REVOKED_ON_DENIED_PERMISSION,
+} from "owlagents/adapters/demo/fixtures/common";
+import {
   applyCommandToSnapshot,
   type ReducerContext,
 } from "owlagents/adapters/demo/reducer";
@@ -10,16 +14,6 @@ import {
   type OwlAgentsSnapshot,
   type ScenarioCommand,
 } from "owlagents/domain/snapshot";
-
-/** Every scope an operator holds by default in the demo environment. */
-export const DEMO_OPERATOR_SCOPES: readonly string[] = [
-  "memory.approve",
-  "memory.publish",
-  "memory.stage",
-  "review.decide",
-  "source.intake",
-  "workorder.transition",
-];
 
 type ScenarioResult = {
   scopes: ReadonlySet<string>;
@@ -194,7 +188,18 @@ export const runScenario = (
 
     reduced.delete("memory.publish");
 
-    return { scopes: reduced, snapshot: withScenarioNote(snapshot, note) };
+    return {
+      scopes: reduced,
+      snapshot: withScenarioNote(
+        {
+          ...snapshot,
+          capabilities: snapshot.capabilities.filter(
+            (capability) => capability !== REVOKED_ON_DENIED_PERMISSION
+          ),
+        },
+        note
+      ),
+    };
   }
 
   if (command === "simulateBlockage") {

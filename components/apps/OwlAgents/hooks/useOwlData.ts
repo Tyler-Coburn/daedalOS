@@ -35,6 +35,7 @@ import {
   selectEvidenceItems,
   selectIncidents,
   selectIntegrations,
+  selectMissingCapabilities,
   selectModelProviders,
   selectPolicyDecision,
   selectPolicyRules,
@@ -43,6 +44,7 @@ import {
   selectServices,
   selectSource,
   selectSources,
+  selectSourcesInIntake,
 } from "owlagents/selectors/catalog";
 import { selectLedger, type LedgerQuery } from "owlagents/selectors/ledger";
 import {
@@ -87,6 +89,20 @@ export const useOwlServices = (): OwlAgentsServices =>
 
 export const useAuthority = (): EnvironmentAuthority =>
   useOwlSelector(selectAuthority);
+
+export const useMissingCapabilities = (
+  required: readonly string[]
+): readonly string[] =>
+  useOwlSelector(
+    useCallback(
+      (s: OwlAgentsSnapshot) => selectMissingCapabilities(required)(s),
+      [required]
+    ),
+    shallowArrayEqual
+  );
+
+export const useSourcesInIntake = (): readonly Source[] =>
+  useOwlSelector(selectSourcesInIntake, shallowArrayEqual);
 
 export const useWorkOrder = (id: string): WorkOrder | undefined =>
   useOwlSelector(

@@ -91,40 +91,37 @@ The registry test will tell you what you missed.
 
 ## 5. The recommended next phase
 
-**Make the intake real.** One bounded piece, no new applications.
+**Put the local adapter behind the intake.** One bounded piece, no new
+applications.
 
-Today: dropping a file on Sources & Files runs the repository's own
-`useFileDrop`, which knows nothing about domain objects. The intake stage
-machine (`received → hashing → preserved → classifying → policy checked →
-assigned → ready | failed`) and `sourceService.advanceIntake` both exist and are
-tested — they are simply not connected.
+Intake itself now works. Dropping a file into the intake zone hashes the real
+bytes with `crypto.subtle`, writes them to the sources mount, and walks
+`received → hashing → preserved → classifying → policy_checked → assigned →
+ready` — one committed transition and one ledger event per stage, no timers, and
+the file is not authoritative until `ready`.
 
-The work:
+What is still demo is the authority underneath it. The work:
 
-1. Wrap the drop handler in `components/apps/OwlAgents/SourcesFiles` so a
-   dropped file creates a `Source` in the store rather than only a file on the
-   virtual filesystem.
-2. Walk the stage machine, appending a ledger event per stage, so the operator
-   watches it become authoritative rather than being told it already is.
-3. Link the new `Source` to a project by the folder it landed in, and to a work
-   order when one is open.
-4. Put the local adapter behind it (`owlagents/adapters/local`) instead of the
-   demo one — this is the first real exercise of that boundary.
+1. Implement `owlagents/adapters/local` against a real store (SQLite or a local
+   API) so an intake survives a reload instead of living in fixtures.
+2. Select it from configuration via `createOwlAgentsStore({ adapter: "local" })`,
+   keeping the DEMO fallback explicit and labelled.
+3. Prove equivalence: the existing intake specs should pass unchanged against
+   the local adapter, because they exercise the service surface rather than the
+   fixtures.
 
-Acceptance: drop a file, watch the stages advance in the Event Timeline, see the
-source appear with `Raw source` authority and a hash, and see it referenced from
-the work order that consumes it. A dropped file must never be authoritative on
-arrival.
+Acceptance: drop a file, reload the page, and the source is still there at
+`ready` with its hash intact — and the environment badge reads LOCAL, not DEMO.
 
 ## 6. Other open items, in priority order
 
-| Item                                    | Notes                                                                                                                                                                                                                           |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Capability gating**                   | Every registry entry declares `requiredCapabilities` and the test asserts they exist, but nothing hides an application. There is one operator holding every scope. Decide whether B3 needs real scopes before wiring UI gating. |
-| **Command palette over domain objects** | The repository's search is a build-time lunr index over the filesystem (`scripts/searchIndex.js`). Work orders and reviews are not in it.                                                                                       |
-| **Start-menu presentation**             | Categories currently drive a folder tree (`OwlAgents/`, `OwlAgents/Diagnostics/`, `OwlAgents/Advanced/`). Flatter inline sections would mean changing the shared `StartMenu` component — a product call for Claude Design.      |
-| **Supabase migrations**                 | Not written. The Lovable UI-shaped schema (`kpi_snapshots`, `attention_item_text`, `display_events`, `since_last_strings`) is **obsolete** — do not adopt it. Derive those values from the domain.                              |
-| **Real integrations**                   | Ollama and the local filesystem first, against `IntegrationAdapter`. Every write must carry its approving policy decision and work-order id.                                                                                    |
+| Item                                    | Notes                                                                                                                                                                                                                      |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Multi-operator identity**             | Capabilities are declared, enforced and revocable, and the gate is reactive — but one operator holds the whole set and it is not persisted. Real identity is a phase of its own.                                           |
+| **Command palette over domain objects** | The repository's search is a build-time lunr index over the filesystem (`scripts/searchIndex.js`). Work orders and reviews are not in it.                                                                                  |
+| **Start-menu presentation**             | Categories currently drive a folder tree (`OwlAgents/`, `OwlAgents/Diagnostics/`, `OwlAgents/Advanced/`). Flatter inline sections would mean changing the shared `StartMenu` component — a product call for Claude Design. |
+| **Supabase migrations**                 | Not written. The Lovable UI-shaped schema (`kpi_snapshots`, `attention_item_text`, `display_events`, `since_last_strings`) is **obsolete** — do not adopt it. Derive those values from the domain.                         |
+| **Real integrations**                   | Ollama and the local filesystem first, against `IntegrationAdapter`. Every write must carry its approving policy decision and work-order id.                                                                               |
 
 ## 7. Traps that cost time in Phase B2
 

@@ -30,7 +30,10 @@ import {
   WORK_ORDER_STATUS_LABELS,
   type WorkOrderStatus,
 } from "owlagents/domain/workOrderStatus";
-import { nextIntakeStage } from "owlagents/domain/authority";
+import {
+  INTAKE_STAGE_LABELS,
+  nextIntakeStage,
+} from "owlagents/domain/authority";
 
 export type ReducerContext = {
   grantedScopes: ReadonlySet<string>;
@@ -463,6 +466,131 @@ const promoteMemory = (
   };
 };
 
+/** SRC-#### is stable and sequential, so a new source never reuses an id. */
+const nextSourceId = (snapshot: OwlAgentsSnapshot): string => {
+  const highest = Object.keys(snapshot.sources).reduce((max, id) => {
+    const value = Number.parseInt(id.replace("SRC-", ""), 10);
+
+    return Number.isNaN(value) || value <= max ? max : value;
+  }, 0);
+
+  return `SRC-${String(highest + 1).padStart(4, "0")}`;
+};
+
+const typeFromName = (name: string): string => {
+  const extension = name.slice(name.lastIndexOf(".") + 1).toLowerCase();
+  const known: Record<string, string> = {
+    csv: "spreadsheet",
+    eml: "email",
+    json: "batch",
+    log: "log",
+    md: "document",
+    pdf: "document",
+    txt: "document",
+    xlsx: "spreadsheet",
+  };
+
+  return known[extension] ?? "file";
+};
+
+/**
+ * A dropped file enters at `received` and is not authoritative.
+ *
+ * It becomes so only by walking the intake stages, each one a separate
+ * committed transition with its own ledger event. Nothing here claims the file
+ * has been classified or policy-checked simply because it exists.
+ */
+const ingestSource = (
+  snapshot: OwlAgentsSnapshot,
+  envelope: CommandEnvelope,
+  command: Extract<AdapterCommand, { kind: "source.ingest" }>,
+  context: ReducerContext
+): ReducerResult => {
+  if (!context.grantedScopes.has(envelope.permissionScope)) {
+    return {
+      result: failResult(
+        "permission_denied",
+        `You do not hold the ${envelope.permissionScope} scope.`
+      ),
+      snapshot,
+    };
+  }
+  if (!snapshot.projects[command.projectId]) {
+    return {
+      result: failResult(
+        "not_found",
+        `Project ${command.projectId} does not exist, so the source has nothing to belong to.`
+      ),
+      snapshot,
+    };
+  }
+
+  const id = nextSourceId(snapshot);
+  const now = context.now();
+  const { event, ledger } = appendEvent(
+    snapshot,
+    {
+      actorId: envelope.actorId,
+      actorType: "operator",
+      eventType: "source.received",
+      idempotencyKey: envelope.idempotencyKey,
+      message: `${id} received: ${command.name} · sha256 ${command.hash.slice(0, 12)}… — preserved, not yet authoritative`,
+      nextState: "received",
+      objectId: id,
+      objectType: "source",
+      projectId: command.projectId,
+      severity: "info",
+      system: "OWL",
+    },
+    context
+  );
+
+  return {
+    result: okResult(
+      { nextState: "received", objectId: id, objectType: "source" },
+      event.id
+    ),
+    snapshot: {
+      ...snapshot,
+      ledger,
+      sources: {
+        ...snapshot.sources,
+        [id]: {
+          authority: "raw",
+          hash: command.hash,
+          hashAlgorithm: "sha256",
+          id,
+          ingestedAt: now,
+          ingestedBy: envelope.actorId,
+          intakeStage: "received",
+          mount: "STAGING · RW",
+          name: command.name,
+          originalLocation: `dropped by operator: ${command.name}`,
+          path: command.path,
+          preservedLocation: command.path.slice(
+            0,
+            command.path.lastIndexOf("/")
+          ),
+          projectId: command.projectId,
+          referencedByWorkOrderIds: [],
+          size: command.size,
+          type: typeFromName(command.name),
+        },
+      },
+      version: snapshot.version + 1,
+    },
+  };
+};
+
+/** What each stage actually did, so the ledger line is worth reading. */
+const INTAKE_NOTE: Partial<Record<string, string>> = {
+  assigned: " to its project",
+  classifying: " by extension and content type",
+  policy_checked: " against POL-002 (read-only ingestion, whitelisted origins)",
+  preserved: " to the sources mount",
+  ready: " — now referenceable by a work order",
+};
+
 const advanceIntake = (
   snapshot: OwlAgentsSnapshot,
   envelope: CommandEnvelope,
@@ -497,7 +625,7 @@ const advanceIntake = (
       actorType: "runtime",
       eventType: "source.intake",
       idempotencyKey: envelope.idempotencyKey,
-      message: `${command.id} intake stage: ${next}`,
+      message: `${command.id} ${INTAKE_STAGE_LABELS[next].toLowerCase()}${INTAKE_NOTE[next] ?? ""}`,
       nextState: next,
       objectId: command.id,
       objectType: "source",
@@ -542,6 +670,8 @@ export const applyCommandToSnapshot = (
       return decideReview(snapshot, envelope, command, context);
     case "source.advanceIntake":
       return advanceIntake(snapshot, envelope, command, context);
+    case "source.ingest":
+      return ingestSource(snapshot, envelope, command, context);
     case "workOrder.transition":
       return transitionWorkOrder(snapshot, envelope, command, context);
     default:

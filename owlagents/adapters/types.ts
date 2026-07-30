@@ -30,6 +30,15 @@ export type AdapterCommand =
   | { command: ScenarioCommand; kind: "scenario.run" }
   | { id: string; kind: "source.advanceIntake" }
   | {
+      /** Computed by the caller before anything is written. */
+      hash: string;
+      kind: "source.ingest";
+      name: string;
+      path: string;
+      projectId: string;
+      size: number;
+    }
+  | {
       expectedVersion: number;
       id: string;
       kind: "workOrder.transition";

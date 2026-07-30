@@ -26,6 +26,7 @@ import {
   useSources,
 } from "components/apps/OwlAgents/hooks/useOwlData";
 import useOwlWindow from "components/apps/OwlAgents/hooks/useOwlWindow";
+import IntakeZone from "components/apps/OwlAgents/SourcesFiles/IntakeZone";
 import { type ComponentProcessProps } from "components/system/Apps/RenderComponent";
 import FileManager from "components/system/Files/FileManager";
 import { useProcesses } from "contexts/process";
@@ -142,6 +143,7 @@ const SourcesFiles: FC<ComponentProcessProps> = ({ id }) => {
               it is authoritative — the intake stage says where each one has got
               to.
             </Note>
+            <IntakeZone projectId={selected?.projectId ?? "PRJ-001"} />
             <DataTable
               caption="Preserved sources"
               columns={COLUMNS}

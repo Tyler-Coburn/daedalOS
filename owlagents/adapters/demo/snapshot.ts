@@ -18,7 +18,10 @@ import {
   DEMO_WORK_ORDERS,
   DEMO_WOVENSTEAD_RECORDS,
 } from "owlagents/adapters/demo/fixtures";
-import { DEMO_SESSION_STARTED_AT } from "owlagents/adapters/demo/fixtures/common";
+import {
+  DEMO_OPERATOR_CAPABILITIES,
+  DEMO_SESSION_STARTED_AT,
+} from "owlagents/adapters/demo/fixtures/common";
 import { describeEnvironment } from "owlagents/domain/authority";
 import { type OwlAgentsSnapshot } from "owlagents/domain/snapshot";
 
@@ -32,6 +35,7 @@ import { type OwlAgentsSnapshot } from "owlagents/domain/snapshot";
 export const createDemoSnapshot = (): OwlAgentsSnapshot => ({
   agents: { ...DEMO_AGENTS },
   artifacts: { ...DEMO_ARTIFACTS },
+  capabilities: [...DEMO_OPERATOR_CAPABILITIES],
   contextPacks: { ...DEMO_CONTEXT_PACKS },
   environment: describeEnvironment("DEMO"),
   evidence: { ...DEMO_EVIDENCE },

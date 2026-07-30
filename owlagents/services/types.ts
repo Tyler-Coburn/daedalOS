@@ -35,6 +35,14 @@ type ReviewDecisionRequest = {
   reason?: string;
 };
 
+type IngestRequest = {
+  hash: string;
+  name: string;
+  path: string;
+  projectId: string;
+  size: number;
+};
+
 type MemoryRequest = {
   actorId?: string;
   expectedVersion: number;
@@ -65,6 +73,12 @@ export type OwlAgentsServices = {
   };
   sourceService: {
     advanceIntake: (id: string) => Committed;
+    /**
+     * Registers a preserved file as a `Source` at the `received` stage. The
+     * caller hashes and writes the file first; nothing is claimed about
+     * classification or policy until the stages are walked.
+     */
+    ingest: (request: IngestRequest) => Committed;
   };
   workOrderService: {
     requestTransition: (request: TransitionRequest) => Committed;

@@ -117,7 +117,8 @@ export const isHealthyIntegrationState = (state: IntegrationState): boolean =>
   state === "connected";
 
 /** Source intake is staged and visible — a dropped file is not yet authoritative. */
-const INTAKE_STAGES = [
+// ts-prune-ignore-next — the documented intake stage vocabulary.
+export const INTAKE_STAGES = [
   "received",
   "hashing",
   "preserved",

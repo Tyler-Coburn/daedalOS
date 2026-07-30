@@ -95,6 +95,30 @@ export const selectAuthority = (
   snapshot: OwlAgentsSnapshot
 ): EnvironmentAuthority => snapshot.environment;
 
+export const selectCapabilities = (
+  snapshot: OwlAgentsSnapshot
+): readonly string[] => snapshot.capabilities;
+
+/**
+ * Which of an application's declared capabilities the operator is missing.
+ * Returning the list rather than a boolean is what lets the refusal name them.
+ */
+export const selectMissingCapabilities =
+  (required: readonly string[]) =>
+  (snapshot: OwlAgentsSnapshot): readonly string[] =>
+    required.filter(
+      (capability) => !snapshot.capabilities.includes(capability)
+    );
+
+/** Sources still working through intake, so the UI can keep them visible. */
+export const selectSourcesInIntake = (
+  snapshot: OwlAgentsSnapshot
+): readonly Source[] =>
+  Object.values(snapshot.sources).filter(
+    (source) =>
+      source.intakeStage !== "failed" && source.intakeStage !== "ready"
+  );
+
 /**
  * System Health and Integrations must agree. Both count "not connected" the
  * same way, from the same snapshot, using the same predicate.

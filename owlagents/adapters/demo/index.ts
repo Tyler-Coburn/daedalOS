@@ -3,10 +3,8 @@ import {
   applyCommandToSnapshot,
   type ReducerContext,
 } from "owlagents/adapters/demo/reducer";
-import {
-  DEMO_OPERATOR_SCOPES,
-  runScenario,
-} from "owlagents/adapters/demo/scenarios";
+import { DEMO_OPERATOR_SCOPES } from "owlagents/adapters/demo/fixtures/common";
+import { runScenario } from "owlagents/adapters/demo/scenarios";
 import { createDemoSnapshot } from "owlagents/adapters/demo/snapshot";
 import {
   type CommandOutcome,

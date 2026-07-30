@@ -8,7 +8,10 @@ import {
   OwlHeader,
   OwlRoot,
 } from "components/apps/OwlAgents/components/primitives";
-import { useAuthority } from "components/apps/OwlAgents/hooks/useOwlData";
+import {
+  useAuthority,
+  useMissingCapabilities,
+} from "components/apps/OwlAgents/hooks/useOwlData";
 import { OWL_TOKENS } from "components/apps/OwlAgents/theme";
 import { useProcesses } from "contexts/process";
 import { PROCESS_DELIMITER } from "utils/constants";
@@ -25,6 +28,27 @@ const Spacer = styled.div`
   flex: 1 1 auto;
 `;
 
+/**
+ * A refusal, not a blank window. The operator is told which capability is
+ * missing and that nothing was read — silence would be indistinguishable from
+ * a broken application.
+ */
+const Refused = styled.div`
+  color: ${OWL_TOKENS.color.textMuted};
+  padding: ${OWL_TOKENS.space.xl};
+
+  > h3 {
+    color: ${OWL_TOKENS.color.text};
+    font-size: 13px;
+    margin: 0 0 ${OWL_TOKENS.space.sm};
+  }
+
+  > p {
+    line-height: 1.6;
+    margin: 0;
+  }
+`;
+
 type AppShellProps = {
   children: React.ReactNode;
   headerRight?: React.ReactNode;
@@ -39,11 +63,16 @@ type AppShellProps = {
  * taskbar button and the icon are *not* re-implemented here — the repository
  * already owns those.
  */
+const NO_CAPABILITIES: readonly string[] = [];
+
 const AppShell: FC<AppShellProps> = ({ children, headerRight, id }) => {
   const { processes } = useProcesses();
   const authority = useAuthority();
   const process = processes[id];
   const [processId = ""] = id.split(PROCESS_DELIMITER);
+  const missing = useMissingCapabilities(
+    process?.requiredCapabilities ?? NO_CAPABILITIES
+  );
 
   return (
     <OwlRoot>
@@ -56,7 +85,17 @@ const AppShell: FC<AppShellProps> = ({ children, headerRight, id }) => {
         {headerRight}
         <AuthorityBadge authority={authority} />
       </OwlHeader>
-      {children}
+      {missing.length > 0 ? (
+        <Refused>
+          <h3>You do not have access to this application</h3>
+          <p>
+            It requires {missing.join(", ")}, which this operator does not hold.
+            Nothing was loaded and no data was read.
+          </p>
+        </Refused>
+      ) : (
+        children
+      )}
     </OwlRoot>
   );
 };
