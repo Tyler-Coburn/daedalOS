@@ -1,0 +1,115 @@
+import { type Agent } from "owlagents/domain/types";
+
+/**
+ * DEMO FIXTURE — three bounded workers, each present in both systems.
+ *
+ * The composite key is `name|system`. Agent personalities are never the unit of
+ * work: the operator manages work orders, and an agent is only ever an
+ * assignee with a declared tool list and an explicit denied list.
+ */
+export const DEMO_AGENTS: Readonly<Record<string, Agent>> = {
+  "Athena|oly": {
+    currentTaskId: "WO-2026-0051",
+    deniedTools: ["spend.money"],
+    id: "Athena|oly",
+    lane: "OLYMPUS · RUNTIME",
+    model: "llama3.3:70b",
+    name: "Athena",
+    queuedTaskIds: [],
+    recentLog: [
+      "14:19 evidence attached: directive-scope",
+      "14:07 rubric field 4 of 6: corroboration B",
+      "13:58 source cross-check: annex III ok",
+      "13:41 source preserved and hashed 4b81…9c",
+      "13:30 accepted WO-2026-0051 from Hermes",
+    ],
+    role: "Researcher / Analyst",
+    status: "working",
+    system: "OLY",
+    tools: ["sources.read", "evidence.write"],
+  },
+  "Athena|owl": {
+    deniedTools: ["memory.publish"],
+    id: "Athena|owl",
+    lane: "OWLAGENTS · RESEARCH",
+    model: "llama3.3:70b",
+    name: "Athena",
+    queuedTaskIds: ["WO-2026-0049"],
+    recentLog: [
+      "14:25 waiting — cost soft-cap acknowledgement pending (REV-2026-0189)",
+    ],
+    role: "Evidence builder",
+    status: "waiting",
+    system: "OWL",
+    tools: ["evidence.write", "rubric.apply"],
+  },
+  "Hephaestus|oly": {
+    currentTaskId: "WO-2026-0047",
+    deniedTools: ["repo.merge"],
+    id: "Hephaestus|oly",
+    lane: "OLYMPUS · FORGE",
+    model: "qwen2.5-coder:32b",
+    name: "Hephaestus",
+    queuedTaskIds: [],
+    recentLog: [
+      "13:12 artifact v3 sent to review queue",
+      "12:58 revision requested: 2 tests fail",
+      "12:31 tests run #482: 34 pass, 2 fail",
+      "11:47 patch v2 superseded by v3",
+    ],
+    role: "Executor / Builder",
+    status: "working",
+    system: "OLY",
+    tools: ["artifacts.write", "scope./artifacts"],
+  },
+  "Hephaestus|owl": {
+    currentTaskId: "WO-2026-0050",
+    deniedTools: ["deploy.prod"],
+    id: "Hephaestus|owl",
+    lane: "OWLAGENTS · CANDIDATE BUILDER",
+    model: "qwen2.5-coder:32b",
+    name: "Hephaestus",
+    queuedTaskIds: ["WO-2026-0050"],
+    recentLog: [
+      "14:32 429 LIMIT_HIT — surfaced, no retry",
+      "11:10 execution attempt 2 started",
+    ],
+    role: "Implementation agent",
+    status: "blocked",
+    system: "OWL",
+    tools: ["candidates.write", "tests.run"],
+  },
+  "Hermes|oly": {
+    currentTaskId: "WO-2026-0046",
+    deniedTools: ["publish.external"],
+    id: "Hermes|oly",
+    lane: "OLYMPUS · RUNTIME",
+    model: "qwen2.5:14b",
+    name: "Hermes",
+    queuedTaskIds: ["WO-2026-0043"],
+    recentLog: [
+      "14:31 route WO-2026-0046 batch 2 to self",
+      "14:28 escalation: REV-2026-0190 to operator",
+      "14:19 handoff evidence context to Athena",
+      "13:52 route WO-2026-0051 to Athena",
+      "13:44 policy check passed WO-2026-0046",
+    ],
+    role: "Router / Dispatcher",
+    status: "working",
+    system: "OLY",
+    tools: ["tasks.route", "sources.read"],
+  },
+  "Hermes|owl": {
+    deniedTools: ["olympus.src.write"],
+    id: "Hermes|owl",
+    lane: "OWLAGENTS · STUDIO",
+    model: "qwen2.5:14b",
+    name: "Hermes",
+    queuedTaskIds: [],
+    recentLog: ["12:40 dispatched context-pack derivation, then idle"],
+    role: "Coordinator",
+    status: "idle",
+    system: "OWL",
+    tools: ["workorders.create", "context.derive"],
+  },
+};

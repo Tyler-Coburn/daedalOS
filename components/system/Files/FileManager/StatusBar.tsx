@@ -116,7 +116,7 @@ const StatusBar: FC<StatusBarProps> = ({
             : ""}
         </div>
       )}
-      <nav className="views">
+      <nav aria-label="View" className="views">
         <Button
           className={view === "details" ? "active" : undefined}
           onClick={() => setView("details")}
@@ -125,6 +125,7 @@ const StatusBar: FC<StatusBarProps> = ({
           )}
         >
           <Icon
+            alt=""
             displaySize={16}
             imgSize={16}
             src="/System/Icons/details_view.webp"
@@ -138,6 +139,7 @@ const StatusBar: FC<StatusBarProps> = ({
           )}
         >
           <Icon
+            alt=""
             displaySize={16}
             imgSize={16}
             src="/System/Icons/icon_view.webp"

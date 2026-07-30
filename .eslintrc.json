@@ -234,6 +234,69 @@
       "rules": {
         "playwright/no-standalone-expect": "off"
       }
+    },
+    {
+      "files": ["owlagents/**/*.ts"],
+      "rules": {
+        "import/no-restricted-paths": [
+          "error",
+          {
+            "basePath": ".",
+            "zones": [
+              {
+                "from": "owlagents/adapters",
+                "target": "owlagents/domain",
+                "message": "The domain layer must not import adapters."
+              },
+              {
+                "from": "owlagents/services",
+                "target": "owlagents/domain",
+                "message": "The domain layer must not import services."
+              },
+              {
+                "from": "owlagents/selectors",
+                "target": "owlagents/domain",
+                "message": "The domain layer must not import selectors."
+              },
+              {
+                "from": "owlagents/store",
+                "target": "owlagents/domain",
+                "message": "The domain layer must not import the store."
+              },
+              {
+                "from": "owlagents/adapters",
+                "target": "owlagents/selectors",
+                "message": "Selectors read a snapshot, never an adapter."
+              },
+              {
+                "from": "owlagents/services",
+                "target": "owlagents/selectors",
+                "message": "Selectors must not call services."
+              },
+              {
+                "from": "owlagents/store",
+                "target": "owlagents/selectors",
+                "message": "Selectors must not reach into the store."
+              },
+              {
+                "from": "components",
+                "target": "owlagents",
+                "message": "owlagents/** is React-free; it must not import components."
+              },
+              {
+                "from": "contexts",
+                "target": "owlagents",
+                "message": "owlagents/** must not import React contexts."
+              },
+              {
+                "from": "hooks",
+                "target": "owlagents",
+                "message": "owlagents/** must not import React hooks."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "reportUnusedDisableDirectives": true,
