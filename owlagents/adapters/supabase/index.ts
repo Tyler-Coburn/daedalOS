@@ -1,11 +1,13 @@
-import { createDemoSnapshot } from "owlagents/adapters/demo/snapshot";
 import {
   type CommandOutcome,
   type OwlAgentsAdapter,
 } from "owlagents/adapters/types";
 import { describeEnvironment } from "owlagents/domain/authority";
 import { failResult, type ServiceResult } from "owlagents/domain/outcome";
-import { type OwlAgentsSnapshot } from "owlagents/domain/snapshot";
+import {
+  createEmptySnapshot,
+  type OwlAgentsSnapshot,
+} from "owlagents/domain/snapshot";
 
 /** Nothing to unsubscribe from — this adapter never emits. */
 const unsubscribe = (): void => undefined;
@@ -29,10 +31,12 @@ const unsubscribe = (): void => undefined;
  * and local mode never requires cloud authentication.
  */
 export const createSupabaseAdapter = (): OwlAgentsAdapter => {
-  const snapshot: OwlAgentsSnapshot = {
-    ...createDemoSnapshot(),
-    environment: describeEnvironment("DEGRADED"),
-  };
+  // Unconfigured means empty, not borrowed. Demo fixtures under a DEGRADED
+  // badge would read as real work the operator cannot currently act on.
+  const snapshot: OwlAgentsSnapshot = createEmptySnapshot(
+    describeEnvironment("DEGRADED"),
+    new Date().toISOString()
+  );
 
   return {
     applyCommand: (): Promise<ServiceResult<CommandOutcome>> =>

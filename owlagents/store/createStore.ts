@@ -8,18 +8,37 @@ import { createServices } from "owlagents/services";
 import { type OwlAgentsServices } from "owlagents/services/types";
 
 /**
- * Which authority the session runs against. `demo` is the default; the others
- * are boundaries that report OFFLINE or DEGRADED until they are implemented,
- * so selecting one can never silently fall back to fixtures.
+ * Which authority the session runs against. `demo` is the default; `local`
+ * reads the Olympus runtime; the rest are boundaries that report OFFLINE or
+ * DEGRADED until they are implemented. No adapter ever falls back to fixtures —
+ * an authority that cannot be reached shows nothing rather than something
+ * borrowed.
  */
 const ADAPTERS = {
-  demo: createDemoAdapter,
-  local: createLocalAdapter,
-  remote: createRemoteAdapter,
-  supabase: createSupabaseAdapter,
+  demo: () => createDemoAdapter(),
+  local: () =>
+    createLocalAdapter({ baseUrl: process.env.NEXT_PUBLIC_OLYMPUS_URL }),
+  remote: () => createRemoteAdapter(),
+  supabase: () => createSupabaseAdapter(),
 } as const;
 
 type AdapterId = keyof typeof ADAPTERS;
+
+const isAdapterId = (value: string | undefined): value is AdapterId =>
+  value !== undefined && value in ADAPTERS;
+
+/**
+ * Build-time selection, not runtime discovery.
+ *
+ * Reading `localStorage` or `/session.json` here would let browser state decide
+ * which authority the operator is looking at, and browser state is not
+ * authoritative for operational decisions. An unrecognised value falls back to
+ * `demo`, which is labelled as fixtures everywhere it appears.
+ */
+const configuredAdapter = (): AdapterId =>
+  isAdapterId(process.env.NEXT_PUBLIC_OWLAGENTS_ADAPTER)
+    ? process.env.NEXT_PUBLIC_OWLAGENTS_ADAPTER
+    : "demo";
 
 type OwlAgentsStore = {
   /**
@@ -49,7 +68,7 @@ type CreateStoreOptions = {
 export const createOwlAgentsStore = (
   options: CreateStoreOptions = {}
 ): OwlAgentsStore => {
-  const selected = options.adapter ?? "demo";
+  const selected = options.adapter ?? configuredAdapter();
   const adapter =
     typeof selected === "string" ? ADAPTERS[selected]() : selected;
   const initialSnapshot = adapter.readSnapshot();

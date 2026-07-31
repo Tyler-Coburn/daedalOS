@@ -91,6 +91,16 @@ The registry test will tell you what you missed.
 
 ## 5. The recommended next phase
 
+> **Update — B3 has landed.** `owlagents/adapters/local` now reads the Olympus
+> runtime: twelve real tasks map to work orders, `/events` becomes the ledger,
+> and `/projects` becomes projects. It is read-only, and every command is refused
+> with a reason. Read `docs/owlagents/olympus-adapter.md` before extending it.
+> Select it with `NEXT_PUBLIC_OWLAGENTS_ADAPTER=local`.
+>
+> What is written below still stands for **intake**, which continues to run
+> against the demo adapter — Olympus does not model sources, so putting the local
+> adapter behind intake needs the write path (B4) or a second local store.
+
 **Put the local adapter behind the intake.** One bounded piece, no new
 applications.
 

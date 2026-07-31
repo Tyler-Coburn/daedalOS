@@ -4,6 +4,10 @@ certificates
 out
 tsconfig.tsbuildinfo
 
+# Adapter selection lives in the environment; no environment file is committed.
+.env
+.env.*
+
 node_modules
 
 test-results
