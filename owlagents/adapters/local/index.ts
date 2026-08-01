@@ -1,8 +1,9 @@
 import {
   DEFAULT_OLYMPUS_URL,
+  describeReadFailure,
   readOlympus,
 } from "owlagents/adapters/local/client";
-import { toSnapshot } from "owlagents/adapters/local/map";
+import { LOCAL_CAPABILITIES, toSnapshot } from "owlagents/adapters/local/map";
 import {
   type CommandOutcome,
   type OwlAgentsAdapter,
@@ -43,10 +44,15 @@ export const createLocalAdapter = (
 
   // Nothing borrowed from the demo fixtures: an unreachable authority shows
   // nothing, so the operator can never mistake fixtures for real work.
-  let snapshot: OwlAgentsSnapshot = createEmptySnapshot(
-    describeEnvironment("OFFLINE"),
-    sessionStartedAt
-  );
+  //
+  // Capabilities are the exception, and deliberately so. They describe the
+  // operator, not the connection — withholding them while Olympus is down would
+  // make every application claim the operator lacks permission, which is a
+  // different and untrue reason for the same empty screen.
+  let snapshot: OwlAgentsSnapshot = {
+    ...createEmptySnapshot(describeEnvironment("OFFLINE"), sessionStartedAt),
+    capabilities: LOCAL_CAPABILITIES,
+  };
   let timer: ReturnType<typeof setTimeout> | undefined;
   let hasRead = false;
   // Monotonic across the session, so a reader can always tell "this is newer"
@@ -66,13 +72,20 @@ export const createLocalAdapter = (
         version,
       };
       hasRead = true;
-    } catch {
+    } catch (error) {
       // Keep the last authoritative state, but stop claiming it is current.
       // DEGRADED means "this was real and may now be behind"; OFFLINE means
       // "nothing has ever been read this session", and the two must not blur.
+      const mode = hasRead ? "DEGRADED" : "OFFLINE";
+
       snapshot = {
         ...snapshot,
-        environment: describeEnvironment(hasRead ? "DEGRADED" : "OFFLINE"),
+        environment: {
+          ...describeEnvironment(mode),
+          // A badge that says only OFFLINE leaves the operator guessing whether
+          // Olympus is down, the URL is wrong, or the browser blocked the read.
+          detail: describeReadFailure(error, baseUrl),
+        },
         version,
       };
     }

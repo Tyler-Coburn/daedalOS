@@ -5,6 +5,7 @@ import {
   type OlympusTaskStatus,
 } from "owlagents/adapters/local/types";
 import { describeEnvironment } from "owlagents/domain/authority";
+import { isId } from "owlagents/domain/ids";
 import {
   createEmptySnapshot,
   type OwlAgentsSnapshot,
@@ -36,20 +37,42 @@ const READ_ONLY_LOCAL = {
     "Read-only — daedalOS reads the Olympus runtime and does not drive it.",
 };
 
+/** Olympus leaves `project_id` null; the work still belongs somewhere. */
+const UNASSIGNED_PROJECT = "project:unassigned";
+
 const money = (amount: number | null): Money => ({
   amount: amount ?? 0,
   currency: "USD",
 });
 
-/** Olympus ids are integers; OwlAgents ids are strings and must stay stable. */
-const workOrderIdFor = (task: OlympusTask): string =>
-  task.work_order_id ?? `WO-OLY-${String(task.id).padStart(4, "0")}`;
+const pad = (value: number, width: number): string =>
+  String(value).padStart(width, "0");
 
-const runIdFor = (task: OlympusTask): string =>
-  `RUN-OLY-${String(task.id).padStart(4, "0")}`;
+/**
+ * Olympus ids are integers; OwlAgents ids are strings that must satisfy
+ * `ID_PATTERNS` and stay stable across reads.
+ *
+ * The pattern conformance is not cosmetic. `resolveDeepLink` validates the id
+ * before opening anything, so an id shaped like `WO-OLY-0001` makes every deep
+ * link and every `ObjectLink` in the command center a dead end.
+ *
+ * Stability comes from immutable inputs: the task id and the year it was
+ * created. Neither changes, so a link keeps working across sessions.
+ */
+const workOrderIdFor = (task: OlympusTask): string => {
+  // A work_order_id assigned by Olympus wins — but only if it is well formed.
+  // Accepting a malformed one would reintroduce the dead link it replaced.
+  if (task.work_order_id !== null && isId("workOrder", task.work_order_id)) {
+    return task.work_order_id;
+  }
+
+  return `WO-${task.created_at.slice(0, 4)}-${pad(task.id, 4)}`;
+};
+
+const runIdFor = (task: OlympusTask): string => `RUN-${pad(task.id, 4)}`;
 
 const projectIdFor = (task: OlympusTask): string =>
-  task.project_id ?? "project:unassigned";
+  task.project_id ?? UNASSIGNED_PROJECT;
 
 /**
  * Olympus task status is *execution* state. It says what the runtime did, not
@@ -223,7 +246,7 @@ export const toLedgerEvent = (
     actorId: isHuman ? "operator" : "runtime",
     actorType: isHuman ? "operator" : "runtime",
     eventType: event.event,
-    id: `EVT-OLY-${String(event.id).padStart(6, "0")}`,
+    id: `EVT-${pad(event.id, 6)}`,
     message: event.msg,
     objectId: workOrderId ?? "olympus",
     // An event whose task is outside the read window belongs to the system, not
@@ -328,6 +351,32 @@ const toAgents = (
     })
   );
 
+/**
+ * What this operator may do, connected or not.
+ *
+ * Capabilities describe the operator; reachability describes the connection,
+ * and the environment badge already says that. Returning an empty set when
+ * Olympus is down would make every application announce "you do not have access
+ * to this application" — a statement about permission that is simply false. The
+ * honest offline screen is the app, open, empty, with a badge explaining why.
+ *
+ * Read-only throughout: no `.write`, no `.approve`, no `.publish`.
+ */
+export const LOCAL_CAPABILITIES: readonly string[] = [
+  "agents.read",
+  "artifacts.read",
+  "integrations.read",
+  "ledger.read",
+  "memory.read",
+  "policy.read",
+  "projects.read",
+  "reviews.read",
+  "runtime.read",
+  "sources.read",
+  "terminal.run",
+  "workorders.read",
+];
+
 const toServices = (reading: OlympusReading): readonly ServiceHealth[] => [
   {
     detail: `127.0.0.1 · ${reading.health.service}`,
@@ -379,20 +428,7 @@ export const toSnapshot = (
   return {
     ...createEmptySnapshot(READ_ONLY_LOCAL, sessionStartedAt),
     agents: toAgents(reading.health.agents, reading.tasks),
-    capabilities: [
-      "agents.read",
-      "artifacts.read",
-      "integrations.read",
-      "ledger.read",
-      "memory.read",
-      "policy.read",
-      "projects.read",
-      "reviews.read",
-      "runtime.read",
-      "sources.read",
-      "terminal.run",
-      "workorders.read",
-    ],
+    capabilities: LOCAL_CAPABILITIES,
     ledger: reading.events.map((event) => toLedgerEvent(event, workOrderIds)),
     projects: Object.fromEntries(
       [...byProject.entries()].map(([id, tasks]) => [

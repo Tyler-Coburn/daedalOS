@@ -59,6 +59,31 @@ No adapter borrows the demo fixtures — not this one, not `remote`, not
 Showing fabricated work orders under an OFFLINE badge is the exact confusion the
 environment badge exists to prevent.
 
+## Olympus must send CORS headers
+
+**As of this writing it does not, and that is the one thing standing between this
+adapter and a working command center.**
+
+daedalOS runs on `localhost:3000`; Olympus answers on `127.0.0.1:3001`. Different
+port means different origin, so the browser discards every response unless
+Olympus sends `Access-Control-Allow-Origin`. `curl` succeeds and the browser
+fails, which is why the mapping tested clean and the app still showed `OFFLINE`.
+
+A static export cannot proxy around this — `output: "export"` has no server at
+runtime. So it is fixed on the Olympus side, or by putting both behind one
+origin. On the Olympus Express app, reads only:
+
+```js
+app.use((req, res, next) => {
+  res.set("Access-Control-Allow-Origin", "http://localhost:3000");
+  next();
+});
+```
+
+That is a change to the Olympus runtime, not to this repository, and it is the
+operator's call. Until it lands, the badge reads `OFFLINE` and says exactly why
+rather than leaving it to guesswork.
+
 ## Degradation
 
 `readOlympus` fails as a unit: if any of the six routes fails, the whole reading

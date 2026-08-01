@@ -12,6 +12,31 @@ export const DEFAULT_OLYMPUS_URL = "http://127.0.0.1:3001";
 
 const TIMEOUT_MS = 4000;
 
+/**
+ * Turns a failed read into a sentence an operator can act on.
+ *
+ * A browser reports a blocked cross-origin request and an unreachable host
+ * identically — `TypeError: Failed to fetch`, no status, no detail. Those two
+ * need different fixes, so the message names both rather than guessing, and
+ * says so only when the process is actually running in a browser.
+ */
+export const describeReadFailure = (
+  error: unknown,
+  baseUrl: string
+): string => {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (error instanceof Error && error.name === "TimeoutError") {
+    return `${baseUrl} did not answer within ${TIMEOUT_MS / 1000}s.`;
+  }
+
+  if (message === "Failed to fetch" || message === "Load failed") {
+    return `${baseUrl} is unreachable, or it answered without CORS headers and the browser discarded the response. Olympus must send Access-Control-Allow-Origin for this page's origin.`;
+  }
+
+  return `${baseUrl} could not be read: ${message}`;
+};
+
 const getJson = async <T>(baseUrl: string, route: string): Promise<T> => {
   const response = await fetch(`${baseUrl}${route}`, {
     signal: AbortSignal.timeout(TIMEOUT_MS),

@@ -1,11 +1,14 @@
 import { OLYMPUS_READING } from "__tests__/owlagents/adapters/fixtures/olympusContract";
 import { createLocalAdapter } from "owlagents/adapters/local";
+import { describeReadFailure } from "owlagents/adapters/local/client";
 import {
   toLedgerEvent,
   toSnapshot,
   workOrderStatusFor,
 } from "owlagents/adapters/local/map";
 import { type OlympusTask } from "owlagents/adapters/local/types";
+import { buildDeepLink, resolveDeepLink } from "owlagents/deepLinks";
+import { type IdKind, isId } from "owlagents/domain/ids";
 import { WORK_ORDER_STATUSES } from "owlagents/domain/workOrderStatus";
 import {
   deriveAttentionItems,
@@ -28,8 +31,8 @@ describe("Olympus execution maps onto OwlAgents governance", () => {
   });
 
   test("work orders carry a stable id derived from the task id", () => {
-    expect(snapshot.workOrders["WO-OLY-0002"]).toBeDefined();
-    expect(snapshot.runs["RUN-OLY-0002"]?.workOrderId).toBe("WO-OLY-0002");
+    expect(snapshot.workOrders["WO-2026-0002"]).toBeDefined();
+    expect(snapshot.runs["RUN-0002"]?.workOrderId).toBe("WO-2026-0002");
   });
 
   /**
@@ -39,8 +42,8 @@ describe("Olympus execution maps onto OwlAgents governance", () => {
    */
   test("a finished task awaits review until an operator approved it", () => {
     // Task 2 has a human_approved event; task 3 does not.
-    expect(snapshot.workOrders["WO-OLY-0002"]?.status).toBe("completed");
-    expect(snapshot.workOrders["WO-OLY-0003"]?.status).toBe("review_pending");
+    expect(snapshot.workOrders["WO-2026-0002"]?.status).toBe("completed");
+    expect(snapshot.workOrders["WO-2026-0003"]?.status).toBe("review_pending");
   });
 
   const statusCases: [string, string][] = [
@@ -68,24 +71,96 @@ describe("Olympus execution maps onto OwlAgents governance", () => {
     ));
 
   test("a failed task is blocked and says why", () => {
-    const blocked = snapshot.workOrders["WO-OLY-0001"];
+    const blocked = snapshot.workOrders["WO-2026-0001"];
 
     expect(blocked?.status).toBe("blocked");
     expect(blocked?.blockedReason).toContain("worker exited");
   });
 
   test("cost comes from the task, and absent cost is zero not invented", () => {
-    expect(snapshot.workOrders["WO-OLY-0002"]?.actualCost.amount).toBe(0.05);
-    expect(snapshot.workOrders["WO-OLY-0001"]?.actualCost.amount).toBe(0);
+    expect(snapshot.workOrders["WO-2026-0002"]?.actualCost.amount).toBe(0.05);
+    expect(snapshot.workOrders["WO-2026-0001"]?.actualCost.amount).toBe(0);
   });
 
   test("stages reflect the timestamps and never a percentage", () => {
-    const pending = snapshot.workOrders["WO-OLY-0004"];
-    const finished = snapshot.workOrders["WO-OLY-0002"];
+    const pending = snapshot.workOrders["WO-2026-0004"];
+    const finished = snapshot.workOrders["WO-2026-0002"];
 
     expect(pending?.stage.index).toBe(0);
     expect(finished?.stage.index).toBe(3);
     expect(finished?.stage.steps.join(" ")).not.toContain("%");
+  });
+});
+
+/**
+ * `resolveDeepLink` validates an id before opening anything, so an id that does
+ * not satisfy `ID_PATTERNS` is a dead link everywhere in the command center —
+ * every route, and every `ObjectLink` in every table. Testing the mapping in
+ * isolation missed this entirely; only opening the app showed it.
+ */
+describe("every generated id is a real id", () => {
+  const idCases: [string, string, string][] = [
+    ...Object.keys(snapshot.workOrders).map((id): [string, string, string] => [
+      "workOrder",
+      id,
+      "work-orders",
+    ]),
+    ...Object.keys(snapshot.runs).map((id): [string, string, string] => [
+      "run",
+      id,
+      "",
+    ]),
+    ...Object.keys(snapshot.projects).map((id): [string, string, string] => [
+      "project",
+      id,
+      "projects",
+    ]),
+    ...snapshot.ledger.map((event): [string, string, string] => [
+      "ledgerEvent",
+      event.id,
+      "",
+    ]),
+  ];
+
+  test.each(idCases)("%s id %p matches its pattern", (kind, id) =>
+    expect(isId(kind as IdKind, id)).toBe(true)
+  );
+
+  test("work-order ids are stable across two reads of the same data", () =>
+    expect(
+      Object.keys(toSnapshot(OLYMPUS_READING, SESSION).workOrders)
+    ).toStrictEqual(Object.keys(snapshot.workOrders)));
+
+  test("a deep link to a real work order resolves", () => {
+    const [id = ""] = Object.keys(snapshot.workOrders);
+
+    expect(resolveDeepLink(buildDeepLink("workOrder", id))?.objectId).toBe(id);
+  });
+
+  test("a deep link to a real project resolves", () => {
+    const target = resolveDeepLink(
+      buildDeepLink("project", "project:examplestore")
+    );
+
+    expect(target?.appId).toBe("Projects");
+    expect(target?.objectId).toBe("project:examplestore");
+  });
+
+  test("a work_order_id Olympus assigned is used only when well formed", () => {
+    const good = { ...taskById(1), work_order_id: "WO-2026-9999" };
+    const bad = { ...taskById(1), work_order_id: "not-an-id" };
+
+    expect(
+      Object.keys(
+        toSnapshot({ ...OLYMPUS_READING, tasks: [good] }, SESSION).workOrders
+      )
+    ).toStrictEqual(["WO-2026-9999"]);
+    // A malformed one is refused, not passed through into a dead link.
+    expect(
+      Object.keys(
+        toSnapshot({ ...OLYMPUS_READING, tasks: [bad] }, SESSION).workOrders
+      )
+    ).toStrictEqual(["WO-2026-0001"]);
   });
 });
 
@@ -121,7 +196,7 @@ describe("the ledger comes from Olympus events", () => {
 
     expect(approved?.actorType).toBe("operator");
     expect(approved?.severity).toBe("success");
-    expect(approved?.objectId).toBe("WO-OLY-0002");
+    expect(approved?.objectId).toBe("WO-2026-0002");
   });
 
   test("every work-order event points at a work order that exists", () =>
@@ -211,7 +286,61 @@ describe("the adapter refuses to drive the runtime", () => {
     // would imply there was once something real behind the badge.
     expect(adapter.getAuthority().mode).toBe("OFFLINE");
     expect(Object.keys(adapter.readSnapshot().workOrders)).toStrictEqual([]);
+    // And it names the address it could not read, not just "offline".
+    expect(adapter.getAuthority().detail).toContain("127.0.0.1:1");
   });
+
+  /**
+   * An unreachable runtime must not read as a revoked permission. The
+   * capability gate refuses an application outright, with "you do not have
+   * access to this application" — true when a scope was revoked, false and
+   * misleading when the server is simply down.
+   */
+  test("an unreachable Olympus does not look like a revoked permission", () => {
+    const adapter = createLocalAdapter({
+      baseUrl: "http://127.0.0.1:1",
+      sessionStartedAt: SESSION,
+    });
+
+    expect(adapter.readSnapshot().capabilities).toContain("workorders.read");
+  });
+
+  test("no capability grants a write, connected or not", () =>
+    expect(
+      snapshot.capabilities.filter(
+        (capability) =>
+          !capability.endsWith(".read") && capability !== "terminal.run"
+      )
+    ).toStrictEqual([]));
+
+  const failures: [string, unknown, string][] = [
+    [
+      "a blocked cross-origin read names CORS",
+      new TypeError("Failed to fetch"),
+      "Access-Control-Allow-Origin",
+    ],
+    [
+      "webkit's wording for the same failure is recognised too",
+      new TypeError("Load failed"),
+      "Access-Control-Allow-Origin",
+    ],
+    [
+      "a timeout says so rather than blaming CORS",
+      Object.assign(new Error("timed out"), { name: "TimeoutError" }),
+      "did not answer within",
+    ],
+    [
+      "anything else is reported verbatim",
+      new Error("/tasks responded 500"),
+      "/tasks responded 500",
+    ],
+  ];
+
+  test.each(failures)("%s", (_name, error, expected) =>
+    expect(describeReadFailure(error, "http://127.0.0.1:3001")).toContain(
+      expected
+    )
+  );
 
   test("every command is refused with a reason and an action", async () => {
     const adapter = createLocalAdapter({
@@ -248,7 +377,7 @@ describe("the existing selectors work unchanged against real data", () => {
 
     expect(
       items.some(
-        (item) => item.objectId === "WO-OLY-0001" && item.kind === "blocked"
+        (item) => item.objectId === "WO-2026-0001" && item.kind === "blocked"
       )
     ).toBe(true);
   });
@@ -281,6 +410,6 @@ describe("the existing selectors work unchanged against real data", () => {
     const project = snapshot.projects["project:unassigned"];
 
     expect(project?.health).toBe("at_risk");
-    expect(project?.blockers[0]).toContain("WO-OLY-0001");
+    expect(project?.blockers[0]).toContain("WO-2026-0001");
   });
 });
