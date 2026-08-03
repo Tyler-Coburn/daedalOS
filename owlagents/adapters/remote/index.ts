@@ -1,11 +1,13 @@
-import { createDemoSnapshot } from "owlagents/adapters/demo/snapshot";
 import {
   type CommandOutcome,
   type OwlAgentsAdapter,
 } from "owlagents/adapters/types";
 import { describeEnvironment } from "owlagents/domain/authority";
 import { failResult, type ServiceResult } from "owlagents/domain/outcome";
-import { type OwlAgentsSnapshot } from "owlagents/domain/snapshot";
+import {
+  createEmptySnapshot,
+  type OwlAgentsSnapshot,
+} from "owlagents/domain/snapshot";
 
 /** Nothing to unsubscribe from — this adapter never emits. */
 const unsubscribe = (): void => undefined;
@@ -18,10 +20,13 @@ const unsubscribe = (): void => undefined;
  * runtime state or Wovenstead publication.
  */
 export const createRemoteAdapter = (): OwlAgentsAdapter => {
-  const snapshot: OwlAgentsSnapshot = {
-    ...createDemoSnapshot(),
-    environment: describeEnvironment("OFFLINE"),
-  };
+  // An unconfigured adapter shows nothing. Borrowing the demo fixtures here
+  // would put fabricated work orders in front of an operator under an OFFLINE
+  // badge — exactly the confusion the badge exists to prevent.
+  const snapshot: OwlAgentsSnapshot = createEmptySnapshot(
+    describeEnvironment("OFFLINE"),
+    new Date().toISOString()
+  );
 
   return {
     applyCommand: (): Promise<ServiceResult<CommandOutcome>> =>

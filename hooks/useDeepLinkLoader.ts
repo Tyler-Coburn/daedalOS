@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useOwlAgentsContext } from "contexts/owlagents";
 import { useProcesses } from "contexts/process";
 import { useSession } from "contexts/session";
+import openDeepLinkTarget from "hooks/openDeepLinkTarget";
 import { resolveDeepLink } from "owlagents/deepLinks";
 import { PROCESS_DELIMITER } from "utils/constants";
 
@@ -43,18 +44,7 @@ const useDeepLinkLoader = (options: DeepLinkLoaderOptions = {}): void => {
         return;
       }
 
-      if (target.appId === "SourcesFiles") {
-        const source = getSnapshot().sources[target.objectId];
-
-        open("SourcesFiles", {
-          owlSelectedId: target.objectId,
-          url: source?.path.split("/").slice(0, -1).join("/") || undefined,
-        });
-
-        return;
-      }
-
-      open(target.appId, { url: target.objectId });
+      openDeepLinkTarget(target, open, getSnapshot);
     },
     [getSnapshot, open, reportUnknown]
   );

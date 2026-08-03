@@ -15,7 +15,7 @@ automation · additional wallpapers · screensavers · new decorative applicatio
 
 | Item                                                                                  | Where the seam is                                                                                                                           |
 | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| A real local authority (API, SQLite or Postgres)                                      | `owlagents/adapters/local` — returns OFFLINE and refuses writes with a reason                                                               |
+| A real local authority (API, SQLite or Postgres)                                      | **Landed in B3** — `owlagents/adapters/local` reads the Olympus runtime. See `olympus-adapter.md`. Still refuses writes with a reason       |
 | Remote companion access                                                               | `owlagents/adapters/remote`                                                                                                                 |
 | Optional Supabase companion for remote reads, shell-preference sync and ledger backup | `owlagents/adapters/supabase` — reports DEGRADED when unconfigured rather than failing open                                                 |
 | Live integrations (Ollama and the local filesystem first)                             | `IntegrationAdapter` in `owlagents/adapters/types.ts`: `describe`, `check`, `read`, optional `write` carrying its approving policy decision |
@@ -47,9 +47,21 @@ automation · additional wallpapers · screensavers · new decorative applicatio
 
 ## Suggested next phase
 
-One bounded piece: **make the intake real**. Wire drag-and-drop in Sources &
-Files to `sourceService.advanceIntake`, so a dropped file walks
-`received → hashing → preserved → classifying → policy checked → assigned →
-ready`, appending ledger events at each step, and lands as a `Source` linked to
-a project — with the local adapter behind it rather than the demo one. No new
-applications.
+**B4 — the write path, if and only if the operator decides to open it.**
+
+B3 made the local adapter real but read-only: it maps the Olympus queue into
+work orders and refuses every command. Whether daedalOS may _fire_ Olympus tasks
+is a governance decision, not a missing feature. The current ecosystem rule is
+that other environments never fire Olympus tasks — the operator is the bridge.
+
+If that rule changes, the seam is `createLocalAdapter.applyCommand`, and the
+Olympus routes that already match the OwlAgents model are `POST /tasks`,
+`POST /tasks/:id/approve` (logs `human_approved`, deliberately leaves status
+alone) and `POST /tasks/:id/revision` (opens a new task carrying `revision_of`).
+Olympus's own `dedupe_key` is the natural carrier for the idempotency key.
+
+If it does not change, the next bounded piece is **make the intake real**: wire
+drag-and-drop in Sources & Files to `sourceService.advanceIntake`, so a dropped
+file walks `received → hashing → preserved → classifying → policy checked →
+assigned → ready`, appending ledger events at each step, and lands as a `Source`
+linked to a project. No new applications.

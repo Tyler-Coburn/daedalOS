@@ -91,6 +91,16 @@ The registry test will tell you what you missed.
 
 ## 5. The recommended next phase
 
+> **Update — B3 has landed.** `owlagents/adapters/local` now reads the Olympus
+> runtime: twelve real tasks map to work orders, `/events` becomes the ledger,
+> and `/projects` becomes projects. It is read-only, and every command is refused
+> with a reason. Read `docs/owlagents/olympus-adapter.md` before extending it.
+> Select it with `NEXT_PUBLIC_OWLAGENTS_ADAPTER=local`.
+>
+> What is written below still stands for **intake**, which continues to run
+> against the demo adapter — Olympus does not model sources, so putting the local
+> adapter behind intake needs the write path (B4) or a second local store.
+
 **Put the local adapter behind the intake.** One bounded piece, no new
 applications.
 
@@ -142,6 +152,18 @@ Acceptance: drop a file, reload the page, and the source is still there at
 - **`yarn dev` occasionally 500s** during concurrent route compilation, which
   reads as an e2e flake. Run the suite against the static export (`CI=1`) for a
   clean signal.
+- **Never run the e2e suite alongside anything else on this machine.** The full
+  three-browser matrix takes ~35 minutes idle. Run it beside a heavy parallel
+  job and it takes 1.6 hours and reports five failures — every one of them a
+  BrowserFS or network test (`FileExplorer › has address bar`, `Terminal › can
+create file`, `Taskbar › has peek image`). All of them pass uncontended. The
+  failures look like regressions and are not, which is worse than a slow run:
+  budget the machine to the suite, or you will spend an hour disproving your own
+  results.
+- **`Terminal › python` fails from the CDN, not from the code.** It downloads
+  Pyodide, so it fails intermittently under load and passes in isolation and on
+  `main`. `Terminal › nslookup` on webkit fails permanently here (DNS-over-HTTPS
+  SSL) and also fails on `main` — neither is caused by this work.
 
 ## 8. What must not be reopened
 

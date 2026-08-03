@@ -23,13 +23,57 @@ export const selectMissionControlStats = (
   const workOrders = Object.values(snapshot.workOrders);
   const reviews = Object.values(snapshot.reviews);
   const agents = Object.values(snapshot.agents);
-  const cost = workOrders.reduce(
-    (total, workOrder) => total + workOrder.actualCost.amount,
-    0
-  );
+  /**
+   * Spend since the session began, not spend across the whole read window.
+   *
+   * This summed every work order in the snapshot under the label "today". The
+   * demo fixtures are one curated day, so it was true there and no test could
+   * catch it; the Olympus adapter reads months of history, and the tile
+   * confidently reported lifetime spend as today's.
+   *
+   * `sessionStartedAt` is the only time boundary the domain carries — there is
+   * no clock in this layer and there must not be one, because these selectors
+   * are pure and are called during a static prerender. So the tile counts what
+   * this session has seen finish, and says exactly that.
+   */
+  const cost = workOrders
+    .filter(
+      (workOrder) =>
+        workOrder.completedAt !== undefined &&
+        workOrder.completedAt >= snapshot.sessionStartedAt
+    )
+    .reduce((total, workOrder) => total + workOrder.actualCost.amount, 0);
   const degraded = snapshot.services.filter(
     (service) => !isHealthyIntegrationState(service.state)
   ).length;
+  /**
+   * Two things can be waiting on a human, and counting only one of them
+   * under-reports the backlog.
+   *
+   * A `Review` is the rich form: an artifact, a pinned version, a decision. A
+   * work order sitting in `review_pending` is the plain form — an authority
+   * that has finished the work but records no review object. The Olympus
+   * runtime only ever produces the second kind, so counting reviews alone
+   * reported an empty queue while real work waited.
+   */
+  const decidableReviews = reviews.filter((review) =>
+    isDecidableReviewState(review.status)
+  );
+  const reviewedWorkOrderIds = new Set(
+    decidableReviews.map((review) => review.workOrderId)
+  );
+  // One item waiting, one count. A work order in `review_pending` that already
+  // has a decidable review attached is the SAME thing asking for the SAME
+  // decision — the demo adapter produces exactly that pairing two clicks into
+  // its own scenario, and counting both made Mission Control disagree with the
+  // Review Queue about how much was outstanding.
+  const awaitingHuman =
+    decidableReviews.length +
+    workOrders.filter(
+      (workOrder) =>
+        workOrder.status === "review_pending" &&
+        !reviewedWorkOrderIds.has(workOrder.id)
+    ).length;
 
   return [
     {
@@ -46,9 +90,7 @@ export const selectMissionControlStats = (
       id: "pendingReview",
       label: "Pending review",
       tone: "accent",
-      value: String(
-        reviews.filter((review) => isDecidableReviewState(review.status)).length
-      ),
+      value: String(awaitingHuman),
     },
     {
       id: "blocked",
@@ -68,7 +110,7 @@ export const selectMissionControlStats = (
     },
     {
       id: "costToday",
-      label: "Cost today",
+      label: "Cost this session",
       tone: "neutral",
       value: `$${cost.toFixed(2)}`,
     },
@@ -93,6 +135,13 @@ export const deriveAttentionItems = (
   snapshot: OwlAgentsSnapshot
 ): readonly AttentionItem[] => {
   const items: AttentionItem[] = [];
+  // Same rule as the "Pending review" tile, so the inbox and the count cannot
+  // disagree about how many decisions are outstanding.
+  const reviewedWorkOrderIds = new Set(
+    Object.values(snapshot.reviews)
+      .filter((review) => isDecidableReviewState(review.status))
+      .map((review) => review.workOrderId)
+  );
 
   Object.values(snapshot.workOrders).forEach((workOrder) => {
     if (workOrder.status === "approval_required") {
@@ -100,6 +149,31 @@ export const deriveAttentionItems = (
         detail: `${workOrder.title} is waiting for you to approve bounded execution.`,
         id: `approval-${workOrder.id}`,
         kind: "approval",
+        objectId: workOrder.id,
+        objectType: "workOrder",
+        projectId: workOrder.projectId,
+        risk: workOrder.risk,
+        title: workOrder.id,
+      });
+    }
+    /**
+     * An authority that produces no Review objects still produces work waiting
+     * on a human. Without this branch the Olympus runtime could fill the queue
+     * with finished, unreviewed work and "Needs your attention" would stay
+     * empty — the inbox silently omitting the only thing it exists to surface.
+     *
+     * Skipped when a decidable review already covers this work order: the
+     * review row below says the same thing, and one decision should occupy one
+     * line of the inbox.
+     */
+    if (
+      workOrder.status === "review_pending" &&
+      !reviewedWorkOrderIds.has(workOrder.id)
+    ) {
+      items.push({
+        detail: `${workOrder.title} finished and is waiting for you to accept or reject the output.`,
+        id: `review-pending-${workOrder.id}`,
+        kind: "review",
         objectId: workOrder.id,
         objectType: "workOrder",
         projectId: workOrder.projectId,
@@ -258,7 +332,18 @@ export type ActiveWorkRow = {
   title: string;
 };
 
-export const selectActiveWork = (
+/**
+ * Everything not finished, which is deliberately wider than the "Active work"
+ * tile — a blocked or unreviewed order is not active, but it is still open and
+ * the operator needs to see it in the table.
+ *
+ * The two used to share the word "Active" and disagree: against the Olympus
+ * runtime the tile read 1 while the table below it listed 3. The table is
+ * captioned "Open work" now, and the tile keeps "Active work" with the same
+ * predicate `selectProjectPulse` and Projects use, so every surface saying
+ * "active" counts the same thing.
+ */
+export const selectOpenWork = (
   snapshot: OwlAgentsSnapshot
 ): readonly ActiveWorkRow[] =>
   Object.values(snapshot.workOrders)

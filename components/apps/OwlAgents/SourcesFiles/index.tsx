@@ -22,6 +22,7 @@ import {
 } from "components/apps/OwlAgents/components/primitives";
 import {
   useAuthority,
+  useProjects,
   useSource,
   useSources,
 } from "components/apps/OwlAgents/hooks/useOwlData";
@@ -100,6 +101,7 @@ const SourcesFiles: FC<ComponentProcessProps> = ({ id }) => {
   });
   const { processes, url: setProcessUrl } = useProcesses();
   const sources = useSources();
+  const projects = useProjects();
   const selected = useSource(selectedId || (sources[0]?.id ?? ""));
   const authority = useAuthority();
   const addressBarRef = useRef<HTMLInputElement | null>(null);
@@ -143,7 +145,15 @@ const SourcesFiles: FC<ComponentProcessProps> = ({ id }) => {
               it is authoritative — the intake stage says where each one has got
               to.
             </Note>
-            <IntakeZone projectId={selected?.projectId ?? "PRJ-001"} />
+            {/*
+              The fallback is a project that exists in this snapshot, never a
+              literal. It used to default to the demo fixture id `PRJ-001`,
+              which under a real authority names no project at all — the
+              dropdown would show one project while the intake targeted another.
+            */}
+            <IntakeZone
+              projectId={selected?.projectId ?? projects[0]?.id ?? ""}
+            />
             <DataTable
               caption="Preserved sources"
               columns={COLUMNS}

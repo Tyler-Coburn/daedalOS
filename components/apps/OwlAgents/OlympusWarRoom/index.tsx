@@ -93,7 +93,9 @@ const OlympusWarRoom: FC<ComponentProcessProps> = ({ id }) => {
               <Current>
                 {agent.currentTaskId
                   ? `Current: ${agent.currentTaskId}`
-                  : "Idle — nothing assigned."}
+                  : agent.queuedTaskIds.length > 0
+                    ? "Not executing — work is waiting below."
+                    : "Idle — nothing assigned."}
               </Current>
               <Mono>{agent.model}</Mono>
               <SectionLabel>Waiting</SectionLabel>

@@ -44,7 +44,15 @@ export const ID_PATTERNS = {
   memoryCandidate: /^MC-\d{4}$/,
   policyDecision: /^PD-\d{4}$/,
   policyRule: /^POL-\d{3}$/,
-  project: /^PRJ-\d{3}$/,
+  /**
+   * `PRJ-000` is the OwlAgents form. `project:<slug>` is admitted because a
+   * real runtime owns its own project identifiers — Olympus has no project
+   * record at all, just a string appearing on tasks — and hashing an opaque
+   * external id into three digits would destroy information to satisfy a
+   * shape. The pattern validates a deep link; it is not a numbering scheme
+   * every source has to adopt.
+   */
+  project: /^PRJ-\d{3}$|^project:[\da-z][\d a-z-]*$/,
   review: /^REV-\d{4}-\d{4}$/,
   run: /^RUN-\d{4}$/,
   source: /^SRC-\d{4}$/,

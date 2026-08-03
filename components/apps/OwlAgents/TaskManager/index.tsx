@@ -11,7 +11,7 @@ import {
   SectionLabel,
 } from "components/apps/OwlAgents/components/primitives";
 import {
-  useActiveWork,
+  useOpenWork,
   useAgents,
 } from "components/apps/OwlAgents/hooks/useOwlData";
 import { type ComponentProcessProps } from "components/system/Apps/RenderComponent";
@@ -76,7 +76,7 @@ const AGENT_COLUMNS: readonly DataColumn<Agent>[] = [
  * because open-ended work has no honest denominator.
  */
 const TaskManager: FC<ComponentProcessProps> = ({ id }) => {
-  const work = useActiveWork();
+  const work = useOpenWork();
   const agents = useAgents();
 
   return (

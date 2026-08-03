@@ -7,6 +7,7 @@ import DataTable, {
 } from "components/apps/OwlAgents/components/DataTable";
 import ObjectLink from "components/apps/OwlAgents/components/ObjectLink";
 import { StateTimeline } from "components/apps/OwlAgents/components/Comparison";
+import { CommandFeedback } from "components/apps/OwlAgents/components/States";
 import {
   ActionButton,
   Card,
@@ -19,7 +20,7 @@ import {
   TabBar,
 } from "components/apps/OwlAgents/components/primitives";
 import {
-  useActiveWork,
+  useOpenWork,
   useAgents,
   useAttentionItems,
   useAuthority,
@@ -31,6 +32,7 @@ import {
   useProjectPulse,
   useServices,
 } from "components/apps/OwlAgents/hooks/useOwlData";
+import useCommand from "components/apps/OwlAgents/hooks/useCommand";
 import useOwlWindow from "components/apps/OwlAgents/hooks/useOwlWindow";
 import { OWL_TOKENS } from "components/apps/OwlAgents/theme";
 import { type ComponentProcessProps } from "components/system/Apps/RenderComponent";
@@ -216,7 +218,7 @@ const MissionControl: FC<ComponentProcessProps> = ({ id }) => {
   const attention = useAttentionItems();
   const briefing = useBriefing();
   const projects = useProjectPulse();
-  const work = useActiveWork();
+  const work = useOpenWork();
   const agents = useAgents();
   const services = useServices();
   const integrations = useIntegrations();
@@ -224,11 +226,20 @@ const MissionControl: FC<ComponentProcessProps> = ({ id }) => {
   const events = useLedger(RECENT_EVENTS);
   const owlServices = useOwlServices();
 
-  const runScenario = useCallback(
-    (command: (typeof SCENARIO_COMMANDS)[number]) =>
-      owlServices.scenarioService.run(command),
-    [owlServices]
+  /**
+   * Routed through `useCommand` like every other write surface. It used to call
+   * the service directly and drop the `ServiceResult`, so a refusal produced no
+   * visible effect at all — the one control in the command center that could
+   * fail silently.
+   */
+  const scenario = useCommand(
+    useCallback(
+      (command: (typeof SCENARIO_COMMANDS)[number]) =>
+        owlServices.scenarioService.run(command),
+      [owlServices]
+    )
   );
+  const { run: runScenario } = scenario;
 
   return (
     <AppShell id={id}>
@@ -262,34 +273,65 @@ const MissionControl: FC<ComponentProcessProps> = ({ id }) => {
 
         {tab === "exec" ? (
           <>
-            <SectionLabel>Since your last session</SectionLabel>
+            {/*
+              "Since your last session" promised something the domain cannot
+              deliver: nothing persists a previous session, so the boundary is
+              this session's start. Naming it accurately costs nothing and stops
+              the panel implying it caught the operator up on time away.
+            */}
+            <SectionLabel>Since you opened this session</SectionLabel>
             <Note>
               {authority.detail} Counted from the ledger, not stored as a
               sentence.
             </Note>
             <CardGrid $columns="1fr 1fr">
               <Card>
-                {briefing.map((line) => (
-                  <BriefingRow key={line.id}>
-                    <span>{line.label}</span>
-                    <Mono>{line.count}</Mono>
-                  </BriefingRow>
-                ))}
+                {/*
+                  Six zero rows read as a report that nothing happened. On a
+                  freshly opened session nothing has happened *yet*, which is a
+                  different statement and the honest one.
+                */}
+                {briefing.every((line) => line.count === 0) ? (
+                  <Note>
+                    Nothing has been recorded yet in this session. Activity
+                    appears here as the ledger receives it.
+                  </Note>
+                ) : (
+                  briefing.map((line) => (
+                    <BriefingRow key={line.id}>
+                      <span>{line.label}</span>
+                      <Mono>{line.count}</Mono>
+                    </BriefingRow>
+                  ))
+                )}
               </Card>
-              <Card>
-                <SectionLabel>Demo scenario</SectionLabel>
-                <ScenarioBar>
-                  {SCENARIO_COMMANDS.map((command) => (
-                    <ActionButton
-                      key={command}
-                      onClick={() => runScenario(command)}
-                      type="button"
-                    >
-                      {SCENARIO_LABELS[command]}
-                    </ActionButton>
-                  ))}
-                </ScenarioBar>
-              </Card>
+              {/*
+                Only where the data is fixtures. These controls advance a demo
+                script; against a real authority every one of them is refused,
+                and offering an enabled button that cannot work — beside a LOCAL
+                badge and real work orders — invites the operator to believe
+                they are driving something.
+              */}
+              {authority.isFixture && (
+                <Card>
+                  <SectionLabel>Demo scenario</SectionLabel>
+                  <ScenarioBar>
+                    {SCENARIO_COMMANDS.map((command) => (
+                      <ActionButton
+                        key={command}
+                        onClick={() => runScenario(command)}
+                        type="button"
+                      >
+                        {SCENARIO_LABELS[command]}
+                      </ActionButton>
+                    ))}
+                  </ScenarioBar>
+                  <CommandFeedback
+                    error={scenario.error}
+                    phase={scenario.phase}
+                  />
+                </Card>
+              )}
             </CardGrid>
             <SectionLabel>
               Needs your attention ({attention.length})
@@ -324,9 +366,9 @@ const MissionControl: FC<ComponentProcessProps> = ({ id }) => {
 
         {tab === "ops" ? (
           <>
-            <SectionLabel>Active work</SectionLabel>
+            <SectionLabel>Open work</SectionLabel>
             <DataTable
-              caption="Active work"
+              caption="Open work"
               columns={WORK_COLUMNS}
               emptyMessage="Nothing is in flight."
               getRowId={(row) => row.id}

@@ -98,3 +98,40 @@ export type OwlAgentsSnapshot = {
   workOrders: Readonly<Record<WorkOrderId, WorkOrder>>;
   wovensteadRecords: Readonly<Record<WovensteadRecordId, WovensteadRecord>>;
 };
+
+/**
+ * A snapshot with nothing in it.
+ *
+ * An adapter that cannot reach its authority returns this rather than borrowing
+ * the demo fixtures. Showing fixture data under an OFFLINE badge would be the
+ * exact failure the environment modes exist to prevent — the operator would see
+ * work that is not there.
+ */
+export const createEmptySnapshot = (
+  environment: EnvironmentAuthority,
+  sessionStartedAt: IsoTimestamp
+): OwlAgentsSnapshot => ({
+  agents: {},
+  artifacts: {},
+  capabilities: [],
+  contextPacks: {},
+  environment,
+  evidence: {},
+  incidents: [],
+  integrations: {},
+  ledger: [],
+  memoryCandidates: {},
+  modelProviders: [],
+  policyDecisions: {},
+  policyRules: {},
+  projects: {},
+  reviews: {},
+  runs: {},
+  scenario: { history: [], step: 0 },
+  services: [],
+  sessionStartedAt,
+  sources: {},
+  version: 1,
+  workOrders: {},
+  wovensteadRecords: {},
+});
