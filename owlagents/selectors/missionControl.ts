@@ -56,10 +56,24 @@ export const selectMissionControlStats = (
    * runtime only ever produces the second kind, so counting reviews alone
    * reported an empty queue while real work waited.
    */
+  const decidableReviews = reviews.filter((review) =>
+    isDecidableReviewState(review.status)
+  );
+  const reviewedWorkOrderIds = new Set(
+    decidableReviews.map((review) => review.workOrderId)
+  );
+  // One item waiting, one count. A work order in `review_pending` that already
+  // has a decidable review attached is the SAME thing asking for the SAME
+  // decision — the demo adapter produces exactly that pairing two clicks into
+  // its own scenario, and counting both made Mission Control disagree with the
+  // Review Queue about how much was outstanding.
   const awaitingHuman =
-    reviews.filter((review) => isDecidableReviewState(review.status)).length +
-    workOrders.filter((workOrder) => workOrder.status === "review_pending")
-      .length;
+    decidableReviews.length +
+    workOrders.filter(
+      (workOrder) =>
+        workOrder.status === "review_pending" &&
+        !reviewedWorkOrderIds.has(workOrder.id)
+    ).length;
 
   return [
     {
@@ -121,6 +135,13 @@ export const deriveAttentionItems = (
   snapshot: OwlAgentsSnapshot
 ): readonly AttentionItem[] => {
   const items: AttentionItem[] = [];
+  // Same rule as the "Pending review" tile, so the inbox and the count cannot
+  // disagree about how many decisions are outstanding.
+  const reviewedWorkOrderIds = new Set(
+    Object.values(snapshot.reviews)
+      .filter((review) => isDecidableReviewState(review.status))
+      .map((review) => review.workOrderId)
+  );
 
   Object.values(snapshot.workOrders).forEach((workOrder) => {
     if (workOrder.status === "approval_required") {
@@ -140,8 +161,15 @@ export const deriveAttentionItems = (
      * on a human. Without this branch the Olympus runtime could fill the queue
      * with finished, unreviewed work and "Needs your attention" would stay
      * empty — the inbox silently omitting the only thing it exists to surface.
+     *
+     * Skipped when a decidable review already covers this work order: the
+     * review row below says the same thing, and one decision should occupy one
+     * line of the inbox.
      */
-    if (workOrder.status === "review_pending") {
+    if (
+      workOrder.status === "review_pending" &&
+      !reviewedWorkOrderIds.has(workOrder.id)
+    ) {
       items.push({
         detail: `${workOrder.title} finished and is waiting for you to accept or reject the output.`,
         id: `review-pending-${workOrder.id}`,
@@ -304,7 +332,18 @@ export type ActiveWorkRow = {
   title: string;
 };
 
-export const selectActiveWork = (
+/**
+ * Everything not finished, which is deliberately wider than the "Active work"
+ * tile — a blocked or unreviewed order is not active, but it is still open and
+ * the operator needs to see it in the table.
+ *
+ * The two used to share the word "Active" and disagree: against the Olympus
+ * runtime the tile read 1 while the table below it listed 3. The table is
+ * captioned "Open work" now, and the tile keeps "Active work" with the same
+ * predicate `selectProjectPulse` and Projects use, so every surface saying
+ * "active" counts the same thing.
+ */
+export const selectOpenWork = (
   snapshot: OwlAgentsSnapshot
 ): readonly ActiveWorkRow[] =>
   Object.values(snapshot.workOrders)

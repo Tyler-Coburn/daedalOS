@@ -57,7 +57,7 @@ import {
 } from "owlagents/selectors/memory";
 import {
   deriveAttentionItems,
-  selectActiveWork,
+  selectOpenWork,
   selectBriefing,
   selectMissionControlStats,
   selectProjectPulse,
@@ -217,8 +217,8 @@ export const useBriefing = (): readonly BriefingLine[] =>
 export const useProjectPulse = (): readonly ProjectPulse[] =>
   useOwlSelector(selectProjectPulse, shallowArrayEqual);
 
-export const useActiveWork = (): readonly ActiveWorkRow[] =>
-  useOwlSelector(selectActiveWork, shallowArrayEqual);
+export const useOpenWork = (): readonly ActiveWorkRow[] =>
+  useOwlSelector(selectOpenWork, shallowArrayEqual);
 
 export const useProject = (id: string): Project | undefined =>
   useOwlSelector(

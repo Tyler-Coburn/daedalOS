@@ -20,7 +20,7 @@ import {
   TabBar,
 } from "components/apps/OwlAgents/components/primitives";
 import {
-  useActiveWork,
+  useOpenWork,
   useAgents,
   useAttentionItems,
   useAuthority,
@@ -218,7 +218,7 @@ const MissionControl: FC<ComponentProcessProps> = ({ id }) => {
   const attention = useAttentionItems();
   const briefing = useBriefing();
   const projects = useProjectPulse();
-  const work = useActiveWork();
+  const work = useOpenWork();
   const agents = useAgents();
   const services = useServices();
   const integrations = useIntegrations();
@@ -273,19 +273,37 @@ const MissionControl: FC<ComponentProcessProps> = ({ id }) => {
 
         {tab === "exec" ? (
           <>
-            <SectionLabel>Since your last session</SectionLabel>
+            {/*
+              "Since your last session" promised something the domain cannot
+              deliver: nothing persists a previous session, so the boundary is
+              this session's start. Naming it accurately costs nothing and stops
+              the panel implying it caught the operator up on time away.
+            */}
+            <SectionLabel>Since you opened this session</SectionLabel>
             <Note>
               {authority.detail} Counted from the ledger, not stored as a
               sentence.
             </Note>
             <CardGrid $columns="1fr 1fr">
               <Card>
-                {briefing.map((line) => (
-                  <BriefingRow key={line.id}>
-                    <span>{line.label}</span>
-                    <Mono>{line.count}</Mono>
-                  </BriefingRow>
-                ))}
+                {/*
+                  Six zero rows read as a report that nothing happened. On a
+                  freshly opened session nothing has happened *yet*, which is a
+                  different statement and the honest one.
+                */}
+                {briefing.every((line) => line.count === 0) ? (
+                  <Note>
+                    Nothing has been recorded yet in this session. Activity
+                    appears here as the ledger receives it.
+                  </Note>
+                ) : (
+                  briefing.map((line) => (
+                    <BriefingRow key={line.id}>
+                      <span>{line.label}</span>
+                      <Mono>{line.count}</Mono>
+                    </BriefingRow>
+                  ))
+                )}
               </Card>
               {/*
                 Only where the data is fixtures. These controls advance a demo
@@ -348,9 +366,9 @@ const MissionControl: FC<ComponentProcessProps> = ({ id }) => {
 
         {tab === "ops" ? (
           <>
-            <SectionLabel>Active work</SectionLabel>
+            <SectionLabel>Open work</SectionLabel>
             <DataTable
-              caption="Active work"
+              caption="Open work"
               columns={WORK_COLUMNS}
               emptyMessage="Nothing is in flight."
               getRowId={(row) => row.id}

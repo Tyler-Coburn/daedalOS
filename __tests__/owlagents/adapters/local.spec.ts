@@ -212,17 +212,19 @@ describe("a truncated event window does not erase approvals", () => {
   });
 
   /**
-   * The two windows drop opposite ends — `/events` is `ORDER BY id DESC` and
-   * `/tasks` is `ORDER BY priority DESC, id ASC` — so naming the wrong one
-   * sends the operator looking for missing work in the wrong direction.
+   * The two windows drop different rows, so naming the wrong criterion sends
+   * the operator looking in the wrong place. `/events` is `ORDER BY id DESC`,
+   * so the OLDEST go. `/tasks` is `ORDER BY priority DESC, id ASC`, so the
+   * primary key is priority and the LOWEST-PRIORITY go — age only decides
+   * within the boundary band.
    */
-  test("a saturated task read says the NEWEST rows are missing, not the oldest", () => {
+  test("a saturated task read names priority, not age, as what was dropped", () => {
     const shortfall = toSnapshot(
       { ...OLYMPUS_READING, truncated: { events: false, tasks: true } },
       SESSION
     ).services.find((service) => service.id === "SVC-ledger-window");
 
-    expect(shortfall?.detail).toContain("NEWEST");
+    expect(shortfall?.detail).toContain("lowest-priority");
     expect(shortfall?.detail).not.toContain("oldest end");
   });
 
@@ -523,11 +525,34 @@ describe("the existing selectors work unchanged against real data", () => {
   test("a project is derived from its tasks, and says what Olympus cannot answer", () => {
     const project = snapshot.projects["project:examplestore"];
 
-    // Tasks 2 and 3, both finished: every task ran and none is still active.
-    expect(project?.stage.index).toBe(2);
     expect(project?.costToDate.amount).toBeCloseTo(0.25);
     // The earliest task, not the last activity — Olympus has no project record.
     expect(project?.createdAt).toBe("2026-07-22T02:04:26.935Z");
+  });
+
+  /**
+   * The last project step is named "Reviewed", and this adapter is emphatic
+   * that Olympus's `done` does not mean reviewed. Both statements have to hold
+   * at once, or one surface calls a project finished while another lists its
+   * work as awaiting a decision.
+   */
+  test("a project is Reviewed only when every work order it holds is", () => {
+    // examplestore holds task 2 (approved -> completed) and task 3 (done but
+    // unapproved -> review_pending), so the project has NOT been reviewed.
+    expect(snapshot.workOrders["WO-2026-0003"]?.status).toBe("review_pending");
+    expect(snapshot.projects["project:examplestore"]?.stage.index).toBe(1);
+  });
+
+  test("a project whose every task is approved does reach Reviewed", () => {
+    const approvedOnly = toSnapshot(
+      {
+        ...OLYMPUS_READING,
+        tasks: OLYMPUS_READING.tasks.filter((task) => task.id === 2),
+      },
+      SESSION
+    );
+
+    expect(approvedOnly.projects["project:examplestore"]?.stage.index).toBe(2);
   });
 
   test("phase is derived from the task types, not defaulted to Build", () => {

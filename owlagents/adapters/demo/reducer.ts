@@ -132,6 +132,12 @@ const transitionWorkOrder = (
     ...workOrder,
     blockedReason:
       command.to === "blocked" ? workOrder.blockedReason : undefined,
+    // Without this, a work order finished during the session carried no
+    // completion time, so anything counting completions in a window — the cost
+    // tile — silently skipped it. The fixtures set `completedAt`; a transition
+    // has to as well, or the store contradicts its own data.
+    completedAt:
+      command.to === "completed" ? context.now() : workOrder.completedAt,
     stage: stageForStatus(workOrder.stage, command.to),
     status: command.to,
     updatedAt: context.now(),

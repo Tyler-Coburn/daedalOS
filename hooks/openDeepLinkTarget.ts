@@ -32,8 +32,13 @@ const openDeepLinkTarget = (
 
     open("SourcesFiles", {
       owlSelectedId: target.objectId,
-      // The folder holding the file, or undefined to leave the pane where it
-      // is. Never the object id: that is not a path.
+      // The folder holding the file. Never the object id — this pane's `url` is
+      // a filesystem path, and an id here breaks the File Explorer.
+      //
+      // When the source is not in the snapshot there is no folder to name, so
+      // `url` is omitted and the app's own effect settles the pane on the
+      // sources root. That opens a window rather than re-targeting one:
+      // SourcesFiles is `singleton: false`, so `openProcess` mints a new pid.
       url: source?.path.split("/").slice(0, -1).join("/") || undefined,
     });
 

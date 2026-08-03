@@ -1,109 +1,95 @@
+import { createSelectionCache } from "components/apps/OwlAgents/hooks/selectionCache";
+import { shallowArrayEqual } from "components/apps/OwlAgents/hooks/useOwlSelector";
 import { createDemoAdapter } from "owlagents/adapters/demo";
 import { type OwlAgentsSnapshot } from "owlagents/domain/snapshot";
+import { type WorkOrder } from "owlagents/domain/types";
 import {
   selectWorkOrder,
   selectWorkOrderList,
 } from "owlagents/selectors/workOrders";
 
 /**
- * The caching rule `useOwlSelector` depends on, tested without React.
+ * The memo `useOwlSelector` actually runs, tested as itself.
  *
- * `useOwlSelector` memoises a selection so `useSyncExternalStore` gets a stable
- * reference. It used to key that cache on the snapshot alone, which is wrong
- * for a reason no data-driven test could reach: selecting a different object or
- * filter changes the *selector*, not the snapshot. The hook returned the
- * previous selector's answer, so a detail pane kept showing the object that was
- * open before and a filtered list stayed unfiltered beneath a highlighted
- * filter — across five of the sixteen applications.
+ * An earlier version of this file reimplemented the cache inside the spec and
+ * asserted against the copy — which meant it passed against the broken hook. A
+ * test of the test. `createSelectionCache` exists so the real code is reachable
+ * without a React renderer.
  *
- * This pins the two facts the fix rests on: the snapshot really is the same
- * object across selections, so it cannot be the whole key; and different
- * selectors really do produce different answers from it.
+ * The defect it pins: keying the cache on the snapshot alone answered the
+ * PREVIOUS question, because selecting a different object or filter changes the
+ * selector while the snapshot stays the same object. A detail pane kept showing
+ * the object that was open before, and a filter rail highlighted "Blocked" over
+ * an unfiltered list — across five of the sixteen applications.
  */
-const adapter = createDemoAdapter();
+const snapshot = createDemoAdapter().readSnapshot();
+const ids = Object.keys(snapshot.workOrders);
+const [first = "", second = ""] = ids;
 
-type AnySelector = (from: OwlAgentsSnapshot) => unknown;
+/** Two distinct selectors that build equal arrays, for the identity test. */
+const listOne = (from: OwlAgentsSnapshot): readonly string[] =>
+  Object.keys(from.workOrders);
+const listTwo = (from: OwlAgentsSnapshot): readonly string[] =>
+  Object.keys(from.workOrders).map((id) => id);
 
-const cacheOn = (
-  key: "snapshot" | "snapshotAndSelector"
-): (<T>(
-  selector: (from: OwlAgentsSnapshot) => T,
-  state: OwlAgentsSnapshot
-) => T) => {
-  let cached:
-    | { selector: AnySelector; snapshot: OwlAgentsSnapshot; value: unknown }
-    | undefined;
+describe("the cache answers the question that was asked", () => {
+  test("a new selector against the same snapshot is not a cache hit", () => {
+    const select = createSelectionCache<WorkOrder | undefined>();
 
-  return <T>(
-    selector: (from: OwlAgentsSnapshot) => T,
-    state: OwlAgentsSnapshot
-  ): T => {
-    const hit =
-      cached?.snapshot === state &&
-      (key === "snapshot" || cached.selector === selector);
-
-    if (hit && cached) return cached.value as T;
-
-    const value = selector(state);
-
-    cached = { selector, snapshot: state, value };
-
-    return value;
-  };
-};
-
-describe("the snapshot alone cannot identify a selection", () => {
-  test("reading twice returns the very same snapshot object", () =>
-    // This is what makes snapshot-only caching a trap: nothing about the data
-    // changes when the operator clicks a different row.
-    expect(adapter.readSnapshot()).toBe(adapter.readSnapshot()));
-
-  test("two ids select two different work orders from that one snapshot", () => {
-    const snapshot = adapter.readSnapshot();
-    const [first = "", second = ""] = Object.keys(snapshot.workOrders);
-
-    expect(second).not.toBe(first);
-    expect(selectWorkOrder(first)(snapshot)).not.toBe(
-      selectWorkOrder(second)(snapshot)
-    );
-  });
-});
-
-describe("keying the cache on the snapshot alone returns a stale answer", () => {
-  const snapshot = adapter.readSnapshot();
-  const [first = "", second = ""] = Object.keys(snapshot.workOrders);
-
-  test("the old key serves the previous selector's object", () => {
-    const select = cacheOn("snapshot");
-
-    select(selectWorkOrder(first), snapshot);
-
-    expect(select(selectWorkOrder(second), snapshot)?.id).toBe(first);
-  });
-
-  test("keying on the selector too returns the object that was asked for", () => {
-    const select = cacheOn("snapshotAndSelector");
-
-    select(selectWorkOrder(first), snapshot);
-
+    expect(select(selectWorkOrder(first), snapshot)?.id).toBe(first);
+    // Same snapshot object; only the question changed. This is the defect — it
+    // used to return the first work order a second time.
     expect(select(selectWorkOrder(second), snapshot)?.id).toBe(second);
   });
 
-  test("the same failure hits filtered lists", () => {
-    const stale = cacheOn("snapshot");
-    const fixed = cacheOn("snapshotAndSelector");
-    const all = selectWorkOrderList("all")(snapshot).length;
-    const blocked = selectWorkOrderList("blocked")(snapshot).length;
+  test("a filter change is visible immediately", () => {
+    const select = createSelectionCache(shallowArrayEqual);
+    const all = select(selectWorkOrderList("all"), snapshot);
+    const blocked = select(selectWorkOrderList("blocked"), snapshot);
 
-    expect(blocked).toBeLessThan(all);
-
-    stale(selectWorkOrderList("all"), snapshot);
-    fixed(selectWorkOrderList("all"), snapshot);
-
-    // The rail highlights "Blocked" while the list still shows everything.
-    expect(stale(selectWorkOrderList("blocked"), snapshot)).toHaveLength(all);
-    expect(fixed(selectWorkOrderList("blocked"), snapshot)).toHaveLength(
-      blocked
-    );
+    expect(blocked.length).toBeLessThan(all.length);
+    expect(blocked.every((order) => order.status === "blocked")).toBe(true);
   });
+
+  test("the same selector and snapshot is a hit, not a recompute", () => {
+    let calls = 0;
+    const counted = (from: OwlAgentsSnapshot): number => {
+      calls += 1;
+
+      return Object.keys(from.workOrders).length;
+    };
+    const select = createSelectionCache<number>();
+
+    select(counted, snapshot);
+    select(counted, snapshot);
+
+    expect(calls).toBe(1);
+  });
+
+  test("an equivalent list keeps its reference so nothing re-renders", () => {
+    const select = createSelectionCache(shallowArrayEqual);
+    const before = select(listOne, snapshot);
+
+    // A different selector building an equal array: recomputed, but the old
+    // reference is handed back, so `useSyncExternalStore` sees no change.
+    expect(select(listTwo, snapshot)).toBe(before);
+  });
+
+  test("a genuinely different answer replaces the reference", () => {
+    const select = createSelectionCache(shallowArrayEqual);
+    const before = select(selectWorkOrderList("all"), snapshot);
+
+    expect(select(selectWorkOrderList("blocked"), snapshot)).not.toBe(before);
+  });
+});
+
+describe("the facts the cache rests on", () => {
+  test("the demo adapter returns the same snapshot object across reads", () => {
+    const adapter = createDemoAdapter();
+
+    expect(adapter.readSnapshot()).toBe(adapter.readSnapshot());
+  });
+
+  test("there are at least two work orders to tell apart", () =>
+    expect(ids.length).toBeGreaterThan(1));
 });

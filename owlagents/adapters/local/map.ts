@@ -180,17 +180,25 @@ const RUN_STEPS = [
  * done. The rail then told the operator a human had reviewed work that no agent
  * had even started.
  *
- * So each step is claimed only from evidence that the step happened: a start
- * time for "picked up", a start time AND a successful finish for "execution
- * finished", and `done` for "operator review". A task that ended without
- * running stays where it actually stopped.
+ * So each step is claimed only from evidence that the step happened, and
+ * `StageList` marks the current index and everything below it as reached:
+ *
+ *   3 "Operator review"     — `done`: execution really finished
+ *   2 "Execution finished"  — nothing else reaches this; a task that started
+ *                             and then failed did NOT finish executing
+ *   1 "Picked up by runtime"— it started, or Olympus assigned it
+ *   0 "Queued"              — it never left the queue
+ *
+ * A failed task therefore sits at "Picked up by runtime", which is exactly
+ * where it stopped, instead of announcing "Execution finished" one line above
+ * its own failure message.
  */
 const stageFor = (
   task: OlympusTask
 ): { index: number; steps: readonly string[] } => {
   if (task.status === "done") return { index: 3, steps: RUN_STEPS };
-  if (task.started_at) return { index: 2, steps: RUN_STEPS };
-  if (task.assigned_at) return { index: 1, steps: RUN_STEPS };
+  if (task.started_at || task.assigned_at)
+    {return { index: 1, steps: RUN_STEPS };}
 
   return { index: 0, steps: RUN_STEPS };
 };
@@ -254,12 +262,29 @@ const toWorkOrder = (
   };
 };
 
-const SEVERITY: Record<string, LedgerEvent["severity"]> = {
-  blocked: "warning",
-  error: "error",
-  failed: "error",
-  human_approved: "success",
-  rejected: "warning",
+/**
+ * Severity follows the translated type, not the wire name.
+ *
+ * Keying it on Olympus's own names looked reasonable and was dead code:
+ * Olympus emits `created`, `status_change`, `human_approved`, `notify`,
+ * `publish_attempt` and `limits_patched` — never `failed`, `error`, `blocked`
+ * or `rejected`. Every entry matched nothing, so everything rendered as `info`,
+ * including task failures.
+ */
+const severityFor = (eventType: string): LedgerEvent["severity"] => {
+  if (eventType === "error.warning") return "warning";
+  if (eventType.startsWith("error.")) return "error";
+  if (eventType === "review.approved" || eventType === "workOrder.completed") {
+    return "success";
+  }
+  if (
+    eventType === "workOrder.rejected" ||
+    eventType === "workOrder.cancelled"
+  ) {
+    return "warning";
+  }
+
+  return "info";
 };
 
 /**
@@ -294,10 +319,19 @@ const eventTypeFor = (event: OlympusEvent): string => {
       if (message.includes("-> done")) return "workOrder.completed";
 
       return "workOrder.transition";
-    default:
-      return event.event === "failed" || event.event === "error"
+    // The dispatcher's own alerts. `notify` carries its level inside the text
+    // — server.js writes `[${level}] ${title}: ${message}` — and the ones that
+    // matter have task_id NULL, so no status_change exists to carry them. An
+    // ecosystem-health failure reported as routine is the "Errors surfaced: 0
+    // while things are burning" case all over again.
+    case "notify":
+      return message.startsWith("[error]")
         ? "error.runtime"
-        : `runtime.${event.event}`;
+        : message.startsWith("[warn]")
+          ? "error.warning"
+          : "runtime.notice";
+    default:
+      return `runtime.${event.event}`;
   }
 };
 
@@ -327,11 +361,7 @@ export const toLedgerEvent = (
     // An event whose task is outside the read window belongs to the system, not
     // to a work order the operator cannot open.
     objectType: workOrderId === undefined ? "system" : "workOrder",
-    // Severity follows the translated type, so a `status_change` that carries a
-    // failure reads as an error rather than as routine information.
-    severity:
-      SEVERITY[event.event] ??
-      (eventType.startsWith("error.") ? "error" : "info"),
+    severity: severityFor(eventType),
     system: "OLY",
     timestamp: event.ts,
   };
@@ -353,7 +383,9 @@ const earliestOf = (timestamps: readonly string[]): string =>
 const toProject = (
   projectId: string,
   tasks: readonly OlympusTask[],
-  lastActivity: string
+  lastActivity: string,
+  approvedTaskIds: ReadonlySet<number>,
+  approvalHorizon?: number
 ): Project => {
   const blocked = tasks.filter(
     (task) => task.status === "blocked" || task.status === "failed"
@@ -364,17 +396,23 @@ const toProject = (
   const started = tasks.filter((task) => task.started_at !== null);
   /**
    * The last step is named "Reviewed", so reaching it has to mean review
-   * happened. Treating "nothing is currently active" as done sent a project
-   * whose remaining tasks had all FAILED to the Reviewed step — the project was
-   * stuck, and the rail called it finished.
+   * happened — and this file is emphatic elsewhere that Olympus's `done` does
+   * not mean that. `workOrderStatusFor` sends an unapproved `done` task to
+   * `review_pending` precisely because nobody looked at it yet.
    *
-   * So: 2 only when every task actually reached `done`, 1 once anything has
-   * run, 0 while the work is still only queued.
+   * So the project rail asks the same question the work orders ask, rather than
+   * a weaker one: the project is Reviewed only when every task it holds became
+   * a `completed` work order. Anything else — failed, blocked, or finished but
+   * unreviewed — leaves it at Executed, which is where it actually is.
    */
   const stageIndex =
     started.length === 0
       ? 0
-      : tasks.every((task) => task.status === "done")
+      : tasks.every(
+            (task) =>
+              workOrderStatusFor(task, approvedTaskIds, approvalHorizon) ===
+              "completed"
+          )
         ? 2
         : 1;
 
@@ -499,16 +537,16 @@ const toServices = (reading: OlympusReading): readonly ServiceHealth[] => {
   // center is reasoning about a partial history. Say so where the operator
   // looks for service health, rather than letting it degrade silently.
   //
-  // The two windows drop opposite ends, and saying the wrong one would send the
-  // operator looking in the wrong place. `/events` is `ORDER BY id DESC`, so it
-  // keeps the newest and drops the oldest. `/tasks` is `ORDER BY priority DESC,
-  // id ASC`, so it keeps the highest-priority earliest rows and drops the
-  // NEWEST — the work most likely to still need attention.
+  // The two windows drop different ends, and naming the wrong one would send
+  // the operator looking in the wrong place. `/events` is `ORDER BY id DESC`,
+  // so it keeps the newest and drops the OLDEST. `/tasks` is `ORDER BY priority
+  // DESC, id ASC`, so the primary key is priority: the LOWEST-PRIORITY rows go
+  // first, and only within the boundary priority band does age decide.
   const shortfalls = [
     truncated?.events === true &&
       "the event history is cut off at its oldest end, so approvals older than the window are taken from Olympus as-is",
     truncated?.tasks === true &&
-      "the task read hit its limit, and Olympus returns tasks oldest-first within a priority, so the NEWEST work orders are the ones missing",
+      "the task read hit its limit, and Olympus returns tasks highest-priority first, so the lowest-priority work orders are the ones missing",
   ].filter((line): line is string => typeof line === "string");
 
   if (shortfalls.length > 0) {
@@ -576,7 +614,9 @@ export const toSnapshot = (
           id,
           tasks,
           reading.projects.find((project) => project.project_id === id)
-            ?.last_activity ?? sessionStartedAt
+            ?.last_activity ?? sessionStartedAt,
+          approved,
+          approvalHorizon
         ),
       ])
     ),

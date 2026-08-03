@@ -5,7 +5,7 @@ import { type OwlAgentsAdapter } from "owlagents/adapters/types";
 import { selectDegradedCount } from "owlagents/selectors/catalog";
 import {
   deriveAttentionItems,
-  selectActiveWork,
+  selectOpenWork,
   selectBriefing,
   selectMissionControlStats,
   selectProjectPulse,
@@ -95,7 +95,7 @@ describe("mission control is derived, never stored", () => {
     }));
 
   test("active work shows a named stage, never a fabricated percentage", () =>
-    selectActiveWork(snapshot).forEach((row) => {
+    selectOpenWork(snapshot).forEach((row) => {
       expect(row.stageLabel).not.toContain("%");
       expect(row.stageLabel.length).toBeGreaterThan(0);
     }));

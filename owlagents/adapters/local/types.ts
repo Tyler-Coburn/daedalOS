@@ -97,9 +97,14 @@ export type OlympusReading = {
   stats: OlympusStats;
   tasks: readonly OlympusTask[];
   /**
-   * Whether a read came back at its limit, meaning older rows exist that this
-   * reading does not hold. Absent is treated as "not truncated" so a
-   * hand-written fixture does not have to say so.
+   * Whether a read came back at its limit, meaning rows exist that this reading
+   * does not hold. Which rows differs per endpoint and is not symmetric:
+   * `/events` is `ORDER BY id DESC` so the OLDEST are dropped, while `/tasks` is
+   * `ORDER BY priority DESC, id ASC` so the LOWEST-PRIORITY are dropped. Say
+   * which in the operator-facing message; do not generalise to "older".
+   *
+   * Absent is treated as "not truncated" so a hand-written fixture does not have
+   * to say so.
    */
   truncated?: {
     events: boolean;
