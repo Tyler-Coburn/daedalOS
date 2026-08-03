@@ -197,10 +197,10 @@ const stageFor = (
   task: OlympusTask
 ): { index: number; steps: readonly string[] } => {
   if (task.status === "done") return { index: 3, steps: RUN_STEPS };
-  if (task.started_at || task.assigned_at)
-    {return { index: 1, steps: RUN_STEPS };}
 
-  return { index: 0, steps: RUN_STEPS };
+  const reachedRuntime = task.started_at !== null || task.assigned_at !== null;
+
+  return { index: reachedRuntime ? 1 : 0, steps: RUN_STEPS };
 };
 
 const toExecutionRun = (task: OlympusTask): ExecutionRun => ({
