@@ -71,8 +71,16 @@ const workOrderIdFor = (task: OlympusTask): string => {
 
 const runIdFor = (task: OlympusTask): string => `RUN-${pad(task.id, 4)}`;
 
+/**
+ * `project_id` is a free-text column in Olympus — anything a task author typed.
+ * It gets the same guard as `work_order_id`: an id that cannot satisfy
+ * `ID_PATTERNS` would key the projects map with something `resolveDeepLink`
+ * rejects, which is the dead link this adapter already fixed once.
+ */
 const projectIdFor = (task: OlympusTask): string =>
-  task.project_id ?? UNASSIGNED_PROJECT;
+  task.project_id !== null && isId("project", task.project_id)
+    ? task.project_id
+    : UNASSIGNED_PROJECT;
 
 /**
  * Olympus task status is *execution* state. It says what the runtime did, not
@@ -101,7 +109,19 @@ const RUN_STATUS: Record<OlympusTaskStatus, ExecutionRun["status"]> = {
  */
 export const workOrderStatusFor = (
   task: OlympusTask,
-  approvedTaskIds: ReadonlySet<number>
+  approvedTaskIds: ReadonlySet<number>,
+  /**
+   * The id of the oldest event this reading holds, when the event window came
+   * back full. Below it, absence of an approval is not evidence of absence: the
+   * approval may simply be older than what `GET /events` returned.
+   *
+   * `review_pending` is the dangerous guess here, not `completed`. This adapter
+   * refuses writes, so a work order wrongly parked in review is an alarm the
+   * operator cannot clear from the command center — it would just accumulate.
+   * A task that finished before the window is therefore reported as it stands
+   * in Olympus, and the saturation itself is surfaced as a degraded service.
+   */
+  approvalHorizon?: number
 ): WorkOrderStatus => {
   switch (task.status) {
     case "assigned":
@@ -112,8 +132,14 @@ export const workOrderStatusFor = (
       return "blocked";
     case "cancelled":
       return "cancelled";
-    case "done":
-      return approvedTaskIds.has(task.id) ? "completed" : "review_pending";
+    case "done": {
+      if (approvedTaskIds.has(task.id)) return "completed";
+
+      const isBeyondHorizon =
+        approvalHorizon !== undefined && task.id < approvalHorizon;
+
+      return isBeyondHorizon ? "completed" : "review_pending";
+    }
     case "rejected":
       return "rejected";
     default:
@@ -137,28 +163,36 @@ const titleFor = (task: OlympusTask): string => {
   return `${task.type} task ${task.id}`;
 };
 
+const RUN_STEPS = [
+  "Queued",
+  "Picked up by runtime",
+  "Execution finished",
+  "Operator review",
+];
+
 /**
- * Stages describe where a task actually got to. There is no percentage,
- * and no stage is claimed that the timestamps do not support.
+ * Stages describe where a task actually got to.
+ *
+ * `completed_at` cannot be the signal. Olympus stamps it on every terminal
+ * transition — `done`, `failed`, `rejected` and `cancelled` all set it — so
+ * keying on it marched a task that was rejected without ever running straight
+ * to "Operator review", and `StageList` paints every step below the index as
+ * done. The rail then told the operator a human had reviewed work that no agent
+ * had even started.
+ *
+ * So each step is claimed only from evidence that the step happened: a start
+ * time for "picked up", a start time AND a successful finish for "execution
+ * finished", and `done` for "operator review". A task that ended without
+ * running stays where it actually stopped.
  */
 const stageFor = (
   task: OlympusTask
 ): { index: number; steps: readonly string[] } => {
-  const steps = [
-    "Queued",
-    "Picked up by runtime",
-    "Execution finished",
-    "Operator review",
-  ];
-  const index = task.completed_at
-    ? 3
-    : task.started_at
-      ? 2
-      : task.assigned_at
-        ? 1
-        : 0;
+  if (task.status === "done") return { index: 3, steps: RUN_STEPS };
+  if (task.started_at) return { index: 2, steps: RUN_STEPS };
+  if (task.assigned_at) return { index: 1, steps: RUN_STEPS };
 
-  return { index, steps };
+  return { index: 0, steps: RUN_STEPS };
 };
 
 const toExecutionRun = (task: OlympusTask): ExecutionRun => ({
@@ -180,9 +214,10 @@ const toExecutionRun = (task: OlympusTask): ExecutionRun => ({
 
 const toWorkOrder = (
   task: OlympusTask,
-  approvedTaskIds: ReadonlySet<number>
+  approvedTaskIds: ReadonlySet<number>,
+  approvalHorizon?: number
 ): WorkOrder => {
-  const status = workOrderStatusFor(task, approvedTaskIds);
+  const status = workOrderStatusFor(task, approvedTaskIds, approvalHorizon);
 
   return {
     actualCost: money(task.cost_actual),
@@ -228,6 +263,45 @@ const SEVERITY: Record<string, LedgerEvent["severity"]> = {
 };
 
 /**
+ * Olympus's event names translated into the domain vocabulary.
+ *
+ * The ledger consumers read `eventType` by prefix — `selectBriefing` counts
+ * `workOrder*`, `review*`, `memory*`, `policy*`, `artifact*`, `error*`. Passing
+ * Olympus's own names straight through meant nothing ever matched, so every
+ * briefing line read zero forever, including "Errors surfaced: 0" while tasks
+ * were failing. A raw wire string is not a domain event; translating it is the
+ * adapter's job, which is exactly what this layer is for.
+ */
+const eventTypeFor = (event: OlympusEvent): string => {
+  const message = event.msg.toLowerCase();
+
+  switch (event.event) {
+    case "human_approved":
+      return "review.approved";
+    case "limits_patched":
+      return "policy.limits_changed";
+    case "publish_attempt":
+      return "artifact.publish_attempt";
+    case "created":
+      return "workOrder.created";
+    // The destination status is the interesting part, and Olympus puts it in
+    // the message as "<from> -> <to>".
+    case "status_change":
+      if (message.includes("-> failed")) return "error.execution_failed";
+      if (message.includes("-> blocked")) return "error.blocked";
+      if (message.includes("-> rejected")) return "workOrder.rejected";
+      if (message.includes("-> cancelled")) return "workOrder.cancelled";
+      if (message.includes("-> done")) return "workOrder.completed";
+
+      return "workOrder.transition";
+    default:
+      return event.event === "failed" || event.event === "error"
+        ? "error.runtime"
+        : `runtime.${event.event}`;
+  }
+};
+
+/**
  * `workOrderIds` maps an Olympus task id to the work-order id the snapshot
  * actually keyed that task under. It is passed in rather than recomputed
  * because a task may carry its own `work_order_id`: rebuilding `WO-OLY-####`
@@ -241,18 +315,23 @@ export const toLedgerEvent = (
   const isHuman = event.event.startsWith("human");
   const workOrderId =
     event.task_id === null ? undefined : workOrderIds.get(event.task_id);
+  const eventType = eventTypeFor(event);
 
   return {
     actorId: isHuman ? "operator" : "runtime",
     actorType: isHuman ? "operator" : "runtime",
-    eventType: event.event,
+    eventType,
     id: `EVT-${pad(event.id, 6)}`,
     message: event.msg,
     objectId: workOrderId ?? "olympus",
     // An event whose task is outside the read window belongs to the system, not
     // to a work order the operator cannot open.
     objectType: workOrderId === undefined ? "system" : "workOrder",
-    severity: SEVERITY[event.event] ?? "info",
+    // Severity follows the translated type, so a `status_change` that carries a
+    // failure reads as an error rather than as routine information.
+    severity:
+      SEVERITY[event.event] ??
+      (eventType.startsWith("error.") ? "error" : "info"),
     system: "OLY",
     timestamp: event.ts,
   };
@@ -283,9 +362,21 @@ const toProject = (
     (task) => task.status === "in_progress" || task.status === "pending"
   );
   const started = tasks.filter((task) => task.started_at !== null);
-  // 0 while work is only queued, 1 once something has run, 2 once every task
-  // has finished. Never a guess: each step is a fact about the task list.
-  const stageIndex = started.length === 0 ? 0 : active.length === 0 ? 2 : 1;
+  /**
+   * The last step is named "Reviewed", so reaching it has to mean review
+   * happened. Treating "nothing is currently active" as done sent a project
+   * whose remaining tasks had all FAILED to the Reviewed step — the project was
+   * stuck, and the rail called it finished.
+   *
+   * So: 2 only when every task actually reached `done`, 1 once anything has
+   * run, 0 while the work is still only queued.
+   */
+  const stageIndex =
+    started.length === 0
+      ? 0
+      : tasks.every((task) => task.status === "done")
+        ? 2
+        : 1;
 
   return {
     activeWorkOrderIds: active.map((task) => workOrderIdFor(task)),
@@ -328,6 +419,13 @@ const toAgents = (
     names.map((name) => {
       const own = tasks.filter((task) => task.assignee === name);
       const current = own.find((task) => task.status === "in_progress");
+      // `assigned` means Olympus has handed the task to this agent but it has
+      // not started. Counting only `pending` dropped those tasks from both
+      // sides, so the War Room printed "Idle — nothing assigned." and "Queue
+      // empty." for an agent that had just been given work.
+      const waiting = own.filter(
+        (task) => task.status === "pending" || task.status === "assigned"
+      );
 
       return [
         name,
@@ -338,9 +436,7 @@ const toAgents = (
           lane: `OLYMPUS · ${name.toUpperCase()}`,
           model: "olympus-runtime",
           name,
-          queuedTaskIds: own
-            .filter((task) => task.status === "pending")
-            .map((task) => workOrderIdFor(task)),
+          queuedTaskIds: waiting.map((task) => workOrderIdFor(task)),
           recentLog: [],
           role: "Olympus agent",
           status: current ? "working" : "idle",
@@ -377,24 +473,56 @@ export const LOCAL_CAPABILITIES: readonly string[] = [
   "workorders.read",
 ];
 
-const toServices = (reading: OlympusReading): readonly ServiceHealth[] => [
-  {
-    detail: `127.0.0.1 · ${reading.health.service}`,
-    id: "SVC-olympus-api",
-    name: "Olympus API",
-    queueDepth: reading.tasks.filter((task) => task.status === "pending")
-      .length,
-    state: reading.health.ok ? "connected" : "degraded",
-  },
-  {
-    detail: `${reading.tasks.length} tasks · today $${reading.stats.todaySpendActual.toFixed(2)} of $${reading.stats.limits.daily_total_spend_cap ?? 0} cap`,
-    id: "SVC-task-queue",
-    name: "Task queue",
-    queueDepth: reading.tasks.filter((task) => task.status === "in_progress")
-      .length,
-    state: reading.health.ok ? "connected" : "degraded",
-  },
-];
+const toServices = (reading: OlympusReading): readonly ServiceHealth[] => {
+  const { truncated } = reading;
+  const services: ServiceHealth[] = [
+    {
+      detail: `127.0.0.1 · ${reading.health.service}`,
+      id: "SVC-olympus-api",
+      name: "Olympus API",
+      queueDepth: reading.tasks.filter((task) => task.status === "pending")
+        .length,
+      state: reading.health.ok ? "connected" : "degraded",
+    },
+    {
+      detail: `${reading.tasks.length} tasks · today $${reading.stats.todaySpendActual.toFixed(2)} of $${reading.stats.limits.daily_total_spend_cap ?? 0} cap`,
+      id: "SVC-task-queue",
+      name: "Task queue",
+      queueDepth: reading.tasks.filter((task) => task.status === "in_progress")
+        .length,
+      state: reading.health.ok ? "connected" : "degraded",
+    },
+  ];
+
+  // A saturated read is a correctness problem, not a display one: review state
+  // is derived from the event window, so a short window means the command
+  // center is reasoning about a partial history. Say so where the operator
+  // looks for service health, rather than letting it degrade silently.
+  //
+  // The two windows drop opposite ends, and saying the wrong one would send the
+  // operator looking in the wrong place. `/events` is `ORDER BY id DESC`, so it
+  // keeps the newest and drops the oldest. `/tasks` is `ORDER BY priority DESC,
+  // id ASC`, so it keeps the highest-priority earliest rows and drops the
+  // NEWEST — the work most likely to still need attention.
+  const shortfalls = [
+    truncated?.events === true &&
+      "the event history is cut off at its oldest end, so approvals older than the window are taken from Olympus as-is",
+    truncated?.tasks === true &&
+      "the task read hit its limit, and Olympus returns tasks oldest-first within a priority, so the NEWEST work orders are the ones missing",
+  ].filter((line): line is string => typeof line === "string");
+
+  if (shortfalls.length > 0) {
+    services.push({
+      detail: `This session is reading a partial history: ${shortfalls.join("; ")}.`,
+      id: "SVC-ledger-window",
+      name: "Read window",
+      queueDepth: 0,
+      state: "degraded",
+    });
+  }
+
+  return services;
+};
 
 /**
  * One reading becomes one snapshot.
@@ -418,6 +546,17 @@ export const toSnapshot = (
   const workOrderIds = new Map(
     reading.tasks.map((task) => [task.id, workOrderIdFor(task)])
   );
+  // Only meaningful when the window is full. The oldest task id the events we
+  // hold refer to is the point below which "no approval event" stops meaning
+  // "not approved".
+  const approvalHorizon =
+    reading.truncated?.events === true
+      ? Math.min(
+          ...reading.events
+            .map((event) => event.task_id)
+            .filter((id): id is number => id !== null)
+        )
+      : undefined;
 
   reading.tasks.forEach((task) => {
     const id = projectIdFor(task);
@@ -448,7 +587,7 @@ export const toSnapshot = (
     workOrders: Object.fromEntries(
       reading.tasks.map((task) => [
         workOrderIdFor(task),
-        toWorkOrder(task, approved),
+        toWorkOrder(task, approved, approvalHorizon),
       ])
     ),
   };

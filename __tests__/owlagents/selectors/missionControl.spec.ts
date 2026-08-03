@@ -45,8 +45,29 @@ describe("mission control is derived, never stored", () => {
     );
   });
 
-  test("cost today is summed from work orders, not stored anywhere", () => {
-    const expected = Object.values(snapshot.workOrders).reduce(
+  /**
+   * The tile is scoped to this session, not to the whole snapshot. Summing
+   * everything was true of the one-day demo fixtures and false of any authority
+   * holding history — it reported lifetime spend under the word "today".
+   */
+  test("cost is summed from work orders finished this session, not stored", () => {
+    const expected = Object.values(snapshot.workOrders)
+      .filter(
+        (workOrder) =>
+          workOrder.completedAt !== undefined &&
+          workOrder.completedAt >= snapshot.sessionStartedAt
+      )
+      .reduce((total, workOrder) => total + workOrder.actualCost.amount, 0);
+    const costTile = selectMissionControlStats(snapshot).find(
+      (stat) => stat.id === "costToday"
+    );
+
+    expect(costTile?.value).toBe(`$${expected.toFixed(2)}`);
+    expect(costTile?.label).not.toContain("today");
+  });
+
+  test("work finished before this session is not counted as this session's", () => {
+    const lifetime = Object.values(snapshot.workOrders).reduce(
       (total, workOrder) => total + workOrder.actualCost.amount,
       0
     );
@@ -54,7 +75,7 @@ describe("mission control is derived, never stored", () => {
       (stat) => stat.id === "costToday"
     );
 
-    expect(costTile?.value).toBe(`$${expected.toFixed(2)}`);
+    expect(costTile?.value).not.toBe(`$${lifetime.toFixed(2)}`);
   });
 
   test("the briefing counts ledger events since the session started", () => {

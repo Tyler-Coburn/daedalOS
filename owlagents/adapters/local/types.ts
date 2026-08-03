@@ -96,4 +96,13 @@ export type OlympusReading = {
   projects: readonly OlympusProject[];
   stats: OlympusStats;
   tasks: readonly OlympusTask[];
+  /**
+   * Whether a read came back at its limit, meaning older rows exist that this
+   * reading does not hold. Absent is treated as "not truncated" so a
+   * hand-written fixture does not have to say so.
+   */
+  truncated?: {
+    events: boolean;
+    tasks: boolean;
+  };
 };

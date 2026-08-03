@@ -7,6 +7,7 @@ import DataTable, {
 } from "components/apps/OwlAgents/components/DataTable";
 import ObjectLink from "components/apps/OwlAgents/components/ObjectLink";
 import { StateTimeline } from "components/apps/OwlAgents/components/Comparison";
+import { CommandFeedback } from "components/apps/OwlAgents/components/States";
 import {
   ActionButton,
   Card,
@@ -31,6 +32,7 @@ import {
   useProjectPulse,
   useServices,
 } from "components/apps/OwlAgents/hooks/useOwlData";
+import useCommand from "components/apps/OwlAgents/hooks/useCommand";
 import useOwlWindow from "components/apps/OwlAgents/hooks/useOwlWindow";
 import { OWL_TOKENS } from "components/apps/OwlAgents/theme";
 import { type ComponentProcessProps } from "components/system/Apps/RenderComponent";
@@ -224,11 +226,20 @@ const MissionControl: FC<ComponentProcessProps> = ({ id }) => {
   const events = useLedger(RECENT_EVENTS);
   const owlServices = useOwlServices();
 
-  const runScenario = useCallback(
-    (command: (typeof SCENARIO_COMMANDS)[number]) =>
-      owlServices.scenarioService.run(command),
-    [owlServices]
+  /**
+   * Routed through `useCommand` like every other write surface. It used to call
+   * the service directly and drop the `ServiceResult`, so a refusal produced no
+   * visible effect at all — the one control in the command center that could
+   * fail silently.
+   */
+  const scenario = useCommand(
+    useCallback(
+      (command: (typeof SCENARIO_COMMANDS)[number]) =>
+        owlServices.scenarioService.run(command),
+      [owlServices]
+    )
   );
+  const { run: runScenario } = scenario;
 
   return (
     <AppShell id={id}>
@@ -276,20 +287,33 @@ const MissionControl: FC<ComponentProcessProps> = ({ id }) => {
                   </BriefingRow>
                 ))}
               </Card>
-              <Card>
-                <SectionLabel>Demo scenario</SectionLabel>
-                <ScenarioBar>
-                  {SCENARIO_COMMANDS.map((command) => (
-                    <ActionButton
-                      key={command}
-                      onClick={() => runScenario(command)}
-                      type="button"
-                    >
-                      {SCENARIO_LABELS[command]}
-                    </ActionButton>
-                  ))}
-                </ScenarioBar>
-              </Card>
+              {/*
+                Only where the data is fixtures. These controls advance a demo
+                script; against a real authority every one of them is refused,
+                and offering an enabled button that cannot work — beside a LOCAL
+                badge and real work orders — invites the operator to believe
+                they are driving something.
+              */}
+              {authority.isFixture && (
+                <Card>
+                  <SectionLabel>Demo scenario</SectionLabel>
+                  <ScenarioBar>
+                    {SCENARIO_COMMANDS.map((command) => (
+                      <ActionButton
+                        key={command}
+                        onClick={() => runScenario(command)}
+                        type="button"
+                      >
+                        {SCENARIO_LABELS[command]}
+                      </ActionButton>
+                    ))}
+                  </ScenarioBar>
+                  <CommandFeedback
+                    error={scenario.error}
+                    phase={scenario.phase}
+                  />
+                </Card>
+              )}
             </CardGrid>
             <SectionLabel>
               Needs your attention ({attention.length})

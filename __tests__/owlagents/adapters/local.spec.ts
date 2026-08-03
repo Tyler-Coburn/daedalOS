@@ -164,6 +164,74 @@ describe("every generated id is a real id", () => {
   });
 });
 
+/**
+ * `POST /tasks/:id/approve` writes only an event — no column on the task — and
+ * `GET /events` offers no filter and no offset, only `ORDER BY id DESC LIMIT ?`.
+ * So a short read window silently erases approvals, and this adapter refuses
+ * writes, which means a work order wrongly parked in review is an alarm the
+ * operator cannot clear from here.
+ */
+describe("a truncated event window does not erase approvals", () => {
+  // A window holding only events about task 3 onward: everything earlier,
+  // including task 2's `human_approved`, has aged out.
+  const truncatedReading = {
+    ...OLYMPUS_READING,
+    events: [
+      {
+        event: "notify",
+        id: 900,
+        // eslint-disable-next-line unicorn/no-null -- the wire format uses null.
+        meta: null,
+        msg: "draft produced",
+        task_id: 3,
+        ts: "2026-07-23T06:07:39.299Z",
+      },
+    ],
+    truncated: { events: true, tasks: false },
+  };
+  const truncated = toSnapshot(truncatedReading, SESSION);
+
+  test("a finished task older than the window is not re-opened for review", () =>
+    // Task 2 finished before the oldest event we hold, so its missing approval
+    // proves nothing. Claiming review_pending would nag forever.
+    expect(truncated.workOrders["WO-2026-0002"]?.status).toBe("completed"));
+
+  test("a finished task inside the window still awaits review", () =>
+    // Task 3 is within the window: if it had been approved we would hold it.
+    expect(truncated.workOrders["WO-2026-0003"]?.status).toBe(
+      "review_pending"
+    ));
+
+  test("the shortfall is reported, not swallowed", () => {
+    const window = truncated.services.find(
+      (service) => service.id === "SVC-ledger-window"
+    );
+
+    expect(window?.state).toBe("degraded");
+    expect(window?.detail).toContain("oldest end");
+  });
+
+  /**
+   * The two windows drop opposite ends — `/events` is `ORDER BY id DESC` and
+   * `/tasks` is `ORDER BY priority DESC, id ASC` — so naming the wrong one
+   * sends the operator looking for missing work in the wrong direction.
+   */
+  test("a saturated task read says the NEWEST rows are missing, not the oldest", () => {
+    const shortfall = toSnapshot(
+      { ...OLYMPUS_READING, truncated: { events: false, tasks: true } },
+      SESSION
+    ).services.find((service) => service.id === "SVC-ledger-window");
+
+    expect(shortfall?.detail).toContain("NEWEST");
+    expect(shortfall?.detail).not.toContain("oldest end");
+  });
+
+  test("an untruncated reading claims no shortfall", () =>
+    expect(
+      snapshot.services.find((service) => service.id === "SVC-ledger-window")
+    ).toBeUndefined());
+});
+
 describe("nothing Olympus does not model is invented", () => {
   const empty: [string, number][] = [
     ["artifacts", Object.keys(snapshot.artifacts).length],
@@ -191,13 +259,61 @@ describe("the ledger comes from Olympus events", () => {
 
   test("a human event is attributed to the operator", () => {
     const approved = snapshot.ledger.find(
-      (event) => event.eventType === "human_approved"
+      (event) => event.eventType === "review.approved"
     );
 
     expect(approved?.actorType).toBe("operator");
     expect(approved?.severity).toBe("success");
     expect(approved?.objectId).toBe("WO-2026-0002");
   });
+
+  /**
+   * Ledger consumers match `eventType` by prefix — `selectBriefing` counts
+   * `workOrder*`, `review*`, `error*` and so on. Passing Olympus's own wire
+   * names straight through meant nothing ever matched, so every briefing line
+   * read zero forever, including "Errors surfaced: 0" while tasks were failing.
+   */
+  const vocabulary: [string, string, string][] = [
+    ["human_approved", "", "review.approved"],
+    ["created", "", "workOrder.created"],
+    ["status_change", "in_progress -> done", "workOrder.completed"],
+    ["status_change", "in_progress -> failed", "error.execution_failed"],
+    ["status_change", "pending -> blocked", "error.blocked"],
+    ["status_change", "pending -> rejected", "workOrder.rejected"],
+    ["limits_patched", "", "policy.limits_changed"],
+    ["publish_attempt", "", "artifact.publish_attempt"],
+  ];
+
+  test.each(vocabulary)(
+    "olympus %p (%p) becomes the domain event %p",
+    (name, msg, expected) =>
+      expect(
+        toLedgerEvent({
+          event: name,
+          id: 1,
+          // eslint-disable-next-line unicorn/no-null -- the wire format uses null.
+          meta: null,
+          msg,
+          // eslint-disable-next-line unicorn/no-null -- the wire format uses null.
+          task_id: null,
+          ts: SESSION,
+        }).eventType
+      ).toBe(expected)
+  );
+
+  test("a failure carries error severity even when Olympus calls it a status change", () =>
+    expect(
+      toLedgerEvent({
+        event: "status_change",
+        id: 1,
+        // eslint-disable-next-line unicorn/no-null -- the wire format uses null.
+        meta: null,
+        msg: "in_progress -> failed",
+        // eslint-disable-next-line unicorn/no-null -- the wire format uses null.
+        task_id: null,
+        ts: SESSION,
+      }).severity
+    ).toBe("error"));
 
   test("every work-order event points at a work order that exists", () =>
     snapshot.ledger
@@ -368,8 +484,23 @@ describe("the existing selectors work unchanged against real data", () => {
     );
 
     expect(byId.blocked).toBe("1");
-    expect(byId.pendingReview).toBe("0");
-    expect(byId.costToday).toBe("$0.25");
+    // Task 3 finished and nobody approved it. Olympus produces no Review
+    // object, so counting reviews alone reported an empty queue while real
+    // work waited on a human.
+    expect(byId.pendingReview).toBe("1");
+    // Every fixture task finished before this session began, so nothing is
+    // attributed to it — the tile counts the session, not all of history.
+    expect(byId.costToday).toBe("$0.00");
+  });
+
+  test("an unreviewed finished work order reaches the operator inbox", () => {
+    const items = deriveAttentionItems(snapshot);
+
+    expect(
+      items.some(
+        (item) => item.objectId === "WO-2026-0003" && item.kind === "review"
+      )
+    ).toBe(true);
   });
 
   test("an unreviewed finished task becomes an attention item", () => {

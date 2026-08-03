@@ -9,7 +9,7 @@ export type DeepLinkObjectType =
   | "source"
   | "workOrder";
 
-type DeepLinkTarget = {
+export type DeepLinkTarget = {
   appId: OwlAgentsAppId;
   objectId: string;
   objectType: DeepLinkObjectType;

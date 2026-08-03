@@ -33,6 +33,9 @@ const HEALTH_STATUS: Record<string, string> = {
   healthy: "connected",
 };
 
+/** What "active" means, kept identical to `selectProjectPulse`. */
+const ACTIVE_STATUSES = new Set(["artifact_ready", "queued", "running"]);
+
 /** The portfolio: purpose, locked decisions, blockers and the next action. */
 const Projects: FC<ComponentProcessProps> = ({ id }) => {
   const { selectedId, setSelectedId } = useOwlWindow(id);
@@ -40,6 +43,12 @@ const Projects: FC<ComponentProcessProps> = ({ id }) => {
   const selected = useProject(selectedId || (projects[0]?.id ?? ""));
   const allOrders = useWorkOrderList("all");
   const orders = allOrders.filter((order) => order.projectId === selected?.id);
+  // The field below says "Active", so it has to count active work — not every
+  // work order the project has ever had. Same predicate as `selectProjectPulse`
+  // so the two surfaces cannot report different numbers for the same word.
+  const activeOrders = orders.filter((order) =>
+    ACTIVE_STATUSES.has(order.status)
+  );
 
   return (
     <AppShell id={id}>
@@ -93,7 +102,9 @@ const Projects: FC<ComponentProcessProps> = ({ id }) => {
                   </div>
                   <div>
                     <FieldLabel>Active work orders</FieldLabel>
-                    <FieldValue>{orders.length}</FieldValue>
+                    <FieldValue>
+                      {activeOrders.length} of {orders.length}
+                    </FieldValue>
                   </div>
                 </FieldGrid>
 

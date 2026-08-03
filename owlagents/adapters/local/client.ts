@@ -50,20 +50,39 @@ const getJson = async <T>(baseUrl: string, route: string): Promise<T> => {
 };
 
 /**
+ * How far back to read.
+ *
+ * This is not a display limit, it is a correctness one. `POST /tasks/:id/approve`
+ * writes *only* an event — no column on the task — so the event log is the sole
+ * record that an operator accepted an output. `GET /events` offers no filter and
+ * no offset, just `ORDER BY id DESC LIMIT ?`, so the only way to know a task was
+ * approved is to still be holding its approval event.
+ *
+ * Read too few and the oldest approvals fall out of the window, and work the
+ * operator already signed off silently reverts to "awaiting review" — an alarm
+ * they cannot clear, because this adapter refuses writes. The ledger is a
+ * single-operator local runtime measured in hundreds of rows, so the window is
+ * set far past any plausible need, and `readOlympus` reports when it is
+ * saturated instead of letting the shortfall pass unnoticed.
+ */
+const EVENT_LIMIT = 5000;
+const TASK_LIMIT = 2000;
+
+/**
  * Reads everything one refresh needs, in parallel, from one moment.
  *
  * A partial read is not returned: if any call fails the whole reading fails and
  * the adapter degrades. Half a snapshot would show some work as missing rather
  * than as unknown, which is worse than showing nothing.
  */
-export const readOlympus = async (
-  baseUrl: string,
-  limit = 200
-): Promise<OlympusReading> => {
+export const readOlympus = async (baseUrl: string): Promise<OlympusReading> => {
   const [health, tasks, events, projects, stats, limits] = await Promise.all([
     getJson<OlympusHealth>(baseUrl, "/health"),
-    getJson<{ tasks: OlympusTask[] }>(baseUrl, `/tasks?limit=${limit}`),
-    getJson<{ events: OlympusEvent[] }>(baseUrl, `/events?limit=${limit}`),
+    getJson<{ tasks: OlympusTask[] }>(baseUrl, `/tasks?limit=${TASK_LIMIT}`),
+    getJson<{ events: OlympusEvent[] }>(
+      baseUrl,
+      `/events?limit=${EVENT_LIMIT}`
+    ),
     getJson<{ projects: OlympusProject[] }>(baseUrl, "/projects"),
     getJson<OlympusStats>(baseUrl, "/tasks/stats"),
     getJson<OlympusLimits>(baseUrl, "/tasks/limits"),
@@ -76,5 +95,11 @@ export const readOlympus = async (
     projects: projects.projects,
     stats,
     tasks: tasks.tasks,
+    // Exactly the limit back means there is probably more we did not see. The
+    // snapshot says so rather than quietly reporting a partial history as whole.
+    truncated: {
+      events: events.events.length >= EVENT_LIMIT,
+      tasks: tasks.tasks.length >= TASK_LIMIT,
+    },
   };
 };

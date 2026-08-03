@@ -71,18 +71,87 @@ fails, which is why the mapping tested clean and the app still showed `OFFLINE`.
 
 A static export cannot proxy around this — `output: "export"` has no server at
 runtime. So it is fixed on the Olympus side, or by putting both behind one
-origin. On the Olympus Express app, reads only:
+origin.
+
+### The patch
+
+Do not reach for `app.use(cors())`. The ecosystem rule is that other
+environments never _fire_ Olympus tasks — the operator is the bridge — and
+Olympus exposes `POST /tasks` and `POST /drafts/:slug/publish`. A blanket CORS
+policy would hand a browser on another port the ability to spend money.
+
+Allow reads, refuse everything else, and the governance rule becomes true at the
+wire instead of only in a document. In `olympus/api/server.js`, immediately after
+`app.use(express.json({ limit: '2mb' }))`:
 
 ```js
+// --- Read-only CORS: the operator-is-the-bridge rule, enforced at the wire ---
+// GET/HEAD are allowed cross-origin and nothing else is. A cross-origin
+// POST /tasks or POST /drafts/:slug/publish gets no CORS headers on its
+// preflight, so the browser refuses to send it. Reading is a convenience;
+// firing stays a decision the operator makes in Olympus.
+//
+// A request with no Origin header — the village dashboard on :3001, curl, the
+// dispatcher — skips all of this and is unaffected.
+const CORS_ORIGINS = (
+  envLocal.OLYMPUS_CORS_ORIGINS ??
+  process.env.OLYMPUS_CORS_ORIGINS ??
+  ""
+)
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+const LOOPBACK_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const originAllowed = (origin) =>
+  CORS_ORIGINS.length > 0
+    ? CORS_ORIGINS.includes(origin)
+    : LOOPBACK_ORIGIN.test(origin);
+
 app.use((req, res, next) => {
-  res.set("Access-Control-Allow-Origin", "http://localhost:3000");
+  const { origin } = req.headers;
+  if (!origin) return next();
+  res.set("Vary", "Origin"); // never let a cache serve one origin's answer to another
+  if (!originAllowed(origin)) return next();
+
+  const method =
+    req.method === "OPTIONS"
+      ? String(req.headers["access-control-request-method"] ?? "")
+      : req.method;
+  if (method !== "GET" && method !== "HEAD") {
+    return req.method === "OPTIONS" ? res.status(403).end() : next();
+  }
+
+  res.set("Access-Control-Allow-Origin", origin);
+  res.set("Access-Control-Allow-Methods", "GET, HEAD");
+  res.set("Access-Control-Max-Age", "600");
+  // No Allow-Credentials: reads carry no cookies and no ambient authority.
+  if (req.method === "OPTIONS") return res.status(204).end();
   next();
 });
 ```
 
-That is a change to the Olympus runtime, not to this repository, and it is the
-operator's call. Until it lands, the badge reads `OFFLINE` and says exactly why
-rather than leaving it to guesswork.
+Loopback origins are allowed by default because Olympus already binds
+`127.0.0.1` only, so nothing off this machine can reach it regardless. Set
+`OLYMPUS_CORS_ORIGINS=https://…` in `olympus/.env` to pin an explicit list for
+the VPS phase, where that assumption stops holding.
+
+Verify it, from the daedalOS side:
+
+```bash
+curl -si http://127.0.0.1:3001/health -H "Origin: http://localhost:3000" | head -3
+```
+
+`Access-Control-Allow-Origin: http://localhost:3000` means reads work. Then
+confirm writes are still refused:
+
+```bash
+curl -si -X OPTIONS http://127.0.0.1:3001/tasks -H "Origin: http://localhost:3000" -H "Access-Control-Request-Method: POST" | head -1
+```
+
+`HTTP/1.1 403 Forbidden` is the correct answer.
+
+Until this lands the badge reads `OFFLINE` and says exactly why, rather than
+leaving it to guesswork.
 
 ## Degradation
 

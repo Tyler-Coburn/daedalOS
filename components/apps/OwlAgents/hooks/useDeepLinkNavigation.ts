@@ -1,5 +1,7 @@
 import { useCallback } from "react";
+import { useOwlAgentsContext } from "contexts/owlagents";
 import { useProcesses } from "contexts/process";
+import openDeepLinkTarget from "hooks/openDeepLinkTarget";
 import {
   buildDeepLink,
   resolveDeepLink,
@@ -22,6 +24,7 @@ const useDeepLinkNavigation = (): {
   navigateTo: (objectType: DeepLinkObjectType, objectId: string) => void;
 } => {
   const { open } = useProcesses();
+  const { getSnapshot } = useOwlAgentsContext();
 
   const navigateTo = useCallback(
     (objectType: DeepLinkObjectType, objectId: string) => {
@@ -31,12 +34,11 @@ const useDeepLinkNavigation = (): {
       if (!target) return;
 
       window.history.pushState({}, "", pathname);
-      open(target.appId, {
-        owlSelectedId: target.objectId,
-        url: target.objectId,
-      });
+      // Same routine the address-bar loader uses, so a source link opens the
+      // file pane on the right folder instead of on an object id.
+      openDeepLinkTarget(target, open, getSnapshot);
     },
-    [open]
+    [getSnapshot, open]
   );
 
   return { navigateTo };

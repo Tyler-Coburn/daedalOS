@@ -58,12 +58,24 @@ export const createLocalAdapter = (
   // Monotonic across the session, so a reader can always tell "this is newer"
   // apart from "this is the same reading again".
   let version = 1;
+  /**
+   * One read in flight, and one polling chain, no matter how the subscriber
+   * count moves.
+   *
+   * React StrictMode mounts, unmounts and remounts in development, and the
+   * operator can close and reopen a window at any time. Each of those can bring
+   * the subscriber count back to one while the previous read is still awaiting
+   * the network — and the old chain's `.finally(schedule)` would re-arm
+   * alongside the new one, doubling the poll rate every cycle.
+   */
+  let inFlight: Promise<void> | undefined;
+  let generation = 0;
 
   const notify = (): void => {
     listeners.forEach((listener) => listener());
   };
 
-  const refresh = async (): Promise<void> => {
+  const readOnce = async (): Promise<void> => {
     version += 1;
 
     try {
@@ -86,6 +98,15 @@ export const createLocalAdapter = (
           // Olympus is down, the URL is wrong, or the browser blocked the read.
           detail: describeReadFailure(error, baseUrl),
         },
+        // Carry the retained rows over as DEGRADED, never as they last stood.
+        // They were captured while the read was working, so leaving them alone
+        // left System Health showing "Olympus API — Connected" in green beside
+        // a tray badge reading DEGRADED. One authority value, two surfaces
+        // disagreeing, is exactly what the environment model forbids.
+        services: snapshot.services.map((service) => ({
+          ...service,
+          state: "degraded" as const,
+        })),
         version,
       };
     }
@@ -93,16 +114,29 @@ export const createLocalAdapter = (
     notify();
   };
 
+  /** Joins the read already in flight rather than starting a second one. */
+  const refresh = (): Promise<void> => {
+    inFlight ??= readOnce().finally(() => {
+      inFlight = undefined;
+    });
+
+    return inFlight;
+  };
+
   /**
    * Polling exists only while something is watching. Nobody subscribed means
    * nobody is looking at the queue, and a command center nobody has open should
    * not keep asking the runtime how it is doing.
+   *
+   * The generation check retires a chain whose subscribers have all gone: a
+   * read that settles after the last unsubscribe belongs to a dead generation
+   * and must not re-arm the timer.
    */
-  const schedule = (): void => {
-    if (listeners.size === 0) return;
+  const schedule = (era: number): void => {
+    if (listeners.size === 0 || era !== generation) return;
 
     timer = setTimeout(() => {
-      refresh().finally(schedule);
+      refresh().finally(() => schedule(era));
     }, options.refreshMs ?? 5000);
   };
 
@@ -127,7 +161,13 @@ export const createLocalAdapter = (
 
       listeners.add(listener);
 
-      if (isFirst) refresh().finally(schedule);
+      if (isFirst) {
+        generation += 1;
+
+        const era = generation;
+
+        refresh().finally(() => schedule(era));
+      }
 
       return () => {
         listeners.delete(listener);
